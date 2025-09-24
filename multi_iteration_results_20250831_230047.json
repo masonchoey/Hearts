@@ -1,0 +1,164 @@
+{
+  "simulation_info": {
+    "timestamp": "20250831_230047",
+    "total_games": 3,
+    "checkpoint_names": [
+      "Iter-49",
+      "Iter-27",
+      "Iter-0",
+      "Iter-0"
+    ],
+    "checkpoint_paths": [
+      "checkpoint_000049",
+      "checkpoint_000027",
+      "checkpoint_000000",
+      "checkpoint_000000"
+    ]
+  },
+  "analysis": {
+    "total_games": 3,
+    "expected_points_per_player": 6.5,
+    "players": {
+      "Iter-49": {
+        "player_id": 0,
+        "checkpoint_path": "checkpoint_000049",
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_score": 10.333333333333334,
+        "std_score": 2.0548046676563256,
+        "best_score": 8.0,
+        "worst_score": 13.0,
+        "cumulative_percentage": 158.97435897435898,
+        "total_points": 31.0,
+        "avg_percentage": 158.97435897435898,
+        "std_percentage": 31.612379502405005
+      },
+      "Iter-27": {
+        "player_id": 1,
+        "checkpoint_path": "checkpoint_000027",
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_score": 7.0,
+        "std_score": 4.320493798938574,
+        "best_score": 3.0,
+        "worst_score": 13.0,
+        "cumulative_percentage": 107.6923076923077,
+        "total_points": 21.0,
+        "avg_percentage": 107.69230769230768,
+        "std_percentage": 66.46913536828575
+      },
+      "Iter-0": {
+        "player_id": 3,
+        "checkpoint_path": "checkpoint_000000",
+        "wins": 2,
+        "win_rate": 0.6666666666666666,
+        "avg_score": 5.333333333333333,
+        "std_score": 6.18241233033047,
+        "best_score": 0.0,
+        "worst_score": 14.0,
+        "cumulative_percentage": 82.05128205128204,
+        "total_points": 16.0,
+        "avg_percentage": 82.05128205128206,
+        "std_percentage": 95.11403585123799
+      }
+    }
+  },
+  "individual_games": [
+    {
+      "timestamp": "2025-08-31T23:00:47.725788",
+      "player_scores": [
+        10.0,
+        13.0,
+        3.0,
+        0.0
+      ],
+      "player_percentages": [
+        153.84615384615387,
+        200.0,
+        46.15384615384615,
+        0.0
+      ],
+      "player_names": [
+        "Iter-49",
+        "Iter-27",
+        "Iter-0",
+        "Iter-0"
+      ],
+      "checkpoint_paths": [
+        "checkpoint_000049",
+        "checkpoint_000027",
+        "checkpoint_000000",
+        "checkpoint_000000"
+      ],
+      "winner": 3,
+      "winner_name": "Iter-0",
+      "total_actions": 64,
+      "game_length": 64,
+      "decision_details": 64
+    },
+    {
+      "timestamp": "2025-08-31T23:00:47.772435",
+      "player_scores": [
+        13.0,
+        5.0,
+        6.0,
+        2.0
+      ],
+      "player_percentages": [
+        200.0,
+        76.92307692307693,
+        92.3076923076923,
+        30.76923076923077
+      ],
+      "player_names": [
+        "Iter-49",
+        "Iter-27",
+        "Iter-0",
+        "Iter-0"
+      ],
+      "checkpoint_paths": [
+        "checkpoint_000049",
+        "checkpoint_000027",
+        "checkpoint_000000",
+        "checkpoint_000000"
+      ],
+      "winner": 3,
+      "winner_name": "Iter-0",
+      "total_actions": 64,
+      "game_length": 64,
+      "decision_details": 64
+    },
+    {
+      "timestamp": "2025-08-31T23:00:47.817465",
+      "player_scores": [
+        8.0,
+        3.0,
+        1.0,
+        14.0
+      ],
+      "player_percentages": [
+        123.07692307692308,
+        46.15384615384615,
+        15.384615384615385,
+        215.3846153846154
+      ],
+      "player_names": [
+        "Iter-49",
+        "Iter-27",
+        "Iter-0",
+        "Iter-0"
+      ],
+      "checkpoint_paths": [
+        "checkpoint_000049",
+        "checkpoint_000027",
+        "checkpoint_000000",
+        "checkpoint_000000"
+      ],
+      "winner": 2,
+      "winner_name": "Iter-0",
+      "total_actions": 64,
+      "game_length": 64,
+      "decision_details": 64
+    }
+  ]
+}

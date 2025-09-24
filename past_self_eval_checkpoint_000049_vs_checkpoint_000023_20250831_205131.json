@@ -1,0 +1,60 @@
+{
+  "evaluation_info": {
+    "timestamp": "20250831_205131",
+    "current_checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000049",
+    "past_checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000023",
+    "evaluation_type": "past_self_comparison"
+  },
+  "analysis": {
+    "total_games": 10,
+    "current_agent": {
+      "checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000049",
+      "avg_score": 26.07,
+      "std_score": 4.212137224735206,
+      "best_score": 16.0,
+      "worst_score": 28.8,
+      "avg_reward": -0.06999999999999992,
+      "avg_decisions_per_game": 14.8
+    },
+    "past_agent": {
+      "checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000023"
+    },
+    "performance_metrics": {
+      "games_under_7_points": 0,
+      "games_over_15_points": 10,
+      "consistency": 0.19185987568675408
+    }
+  },
+  "sample_games": [
+    {
+      "current_agent_score": 20.6,
+      "current_agent_reward": 5.4,
+      "game_length": 13,
+      "current_agent_decisions": 13
+    },
+    {
+      "current_agent_score": 28.4,
+      "current_agent_reward": -2.4,
+      "game_length": 13,
+      "current_agent_decisions": 13
+    },
+    {
+      "current_agent_score": 28.5,
+      "current_agent_reward": -2.5,
+      "game_length": 16,
+      "current_agent_decisions": 16
+    },
+    {
+      "current_agent_score": 28.4,
+      "current_agent_reward": -2.4,
+      "game_length": 16,
+      "current_agent_decisions": 16
+    },
+    {
+      "current_agent_score": 24.3,
+      "current_agent_reward": 1.7,
+      "game_length": 13,
+      "current_agent_decisions": 13
+    }
+  ]
+}

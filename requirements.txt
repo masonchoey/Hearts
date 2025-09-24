@@ -1,0 +1,17 @@
+#!/usr/bin/env -S python3 -m pip install -r
+# You can install dependencies by running either:
+#   ./requirements.txt
+# or
+#   pip install -r requirements.txt
+
+numpy
+pandas
+matplotlib
+gymnasium
+ray[rllib]
+torch
+termcolor
+open-spiel
+python-dotenv
+
+

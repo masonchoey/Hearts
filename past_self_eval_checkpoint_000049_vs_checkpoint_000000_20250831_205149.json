@@ -1,0 +1,48 @@
+{
+  "evaluation_info": {
+    "timestamp": "20250831_205149",
+    "current_checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000049",
+    "past_checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000000",
+    "evaluation_type": "past_self_comparison"
+  },
+  "analysis": {
+    "total_games": 3,
+    "current_agent": {
+      "checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000049",
+      "avg_score": 24.5,
+      "std_score": 3.18433666561813,
+      "best_score": 20.6,
+      "worst_score": 28.4,
+      "avg_reward": 1.5,
+      "avg_decisions_per_game": 15.0
+    },
+    "past_agent": {
+      "checkpoint": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000000"
+    },
+    "performance_metrics": {
+      "games_under_7_points": 0,
+      "games_over_15_points": 3,
+      "consistency": 0.23898650608513486
+    }
+  },
+  "sample_games": [
+    {
+      "current_agent_score": 20.6,
+      "current_agent_reward": 5.4,
+      "game_length": 16,
+      "current_agent_decisions": 16
+    },
+    {
+      "current_agent_score": 24.5,
+      "current_agent_reward": 1.5,
+      "game_length": 16,
+      "current_agent_decisions": 16
+    },
+    {
+      "current_agent_score": 28.4,
+      "current_agent_reward": -2.4,
+      "game_length": 13,
+      "current_agent_decisions": 13
+    }
+  ]
+}
