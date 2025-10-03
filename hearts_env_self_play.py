@@ -17,6 +17,9 @@ class HeartsGymEnvSelfPlay(gym.Env):
     The environment rotates through players 0-3, always presenting the current
     player's perspective to the RL agent. Action masking ensures only legal 
     actions are available, improving training efficiency.
+    
+    Optionally supports playing against older checkpoint policies to prevent
+    overfitting to the most recent strategy.
     """
 
     metadata = {"render_modes": ["human"]}
@@ -24,6 +27,15 @@ class HeartsGymEnvSelfPlay(gym.Env):
     def __init__(self, env_config=None):
         # The base OpenSpiel environment (4-player Hearts).
         self._base_env = OSPSingle(pyspiel.load_game("hearts"), players=4)
+        
+        # Store opponent policy info (if using older checkpoints)
+        self._opponent_policies = {}
+        self._env_config = env_config or {}
+        
+        # Determine which players are controlled by opponent policies
+        # Player 0 is always the learning agent
+        self._learning_player = 0
+        self._opponent_checkpoint_paths = self._env_config.get("opponent_checkpoints", [])
 
         obs_size = self._base_env.observation_spec()["info_state"][0]
         num_actions = self._base_env.action_spec()["num_actions"]
@@ -82,7 +94,7 @@ class HeartsGymEnvSelfPlay(gym.Env):
         In self-play, each step represents one player's move. The environment
         returns the observation for the next player to move, or terminates
         if the game is over. All players are assumed to be controlled by the
-        same RL agent policy.
+        same RL agent policy, except when opponent checkpoints are specified.
         """
         ts = self._last_timestep
         current_player = ts.observations["current_player"]
@@ -161,3 +173,11 @@ class HeartsGymEnvSelfPlay(gym.Env):
     def get_game_history(self):
         """Return the complete game history of all actions played by all players."""
         return self._game_history.copy()
+    
+    def load_opponent_policies(self, checkpoint_paths):
+        """Load opponent policies from checkpoints.
+        
+        Args:
+            checkpoint_paths: List of paths to checkpoint directories
+        """
+        self._opponent_checkpoint_paths = checkpoint_paths

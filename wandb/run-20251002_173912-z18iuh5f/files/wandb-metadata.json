@@ -1,0 +1,37 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.5",
+  "startedAt": "2025-10-03T00:39:12.167943Z",
+  "program": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py",
+  "codePath": "main_self_play.py",
+  "codePathLocal": "main_self_play.py",
+  "git": {
+    "remote": "https://github.com/masonchoey/Hearts.git",
+    "commit": "0143195f773fd4882c27da116f06931c5d1f58db"
+  },
+  "email": "mason@choey.com",
+  "root": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts",
+  "host": "Masons-MacBook-Air.local",
+  "executable": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/bin/python3",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "376253841408"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M3",
+    "ecpuCores": 4,
+    "pcpuCores": 4,
+    "gpuCores": 10,
+    "memoryGb": 16,
+    "swapTotalBytes": "3221225472",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "ugktmcy7lf9430tew38gz8j027pifw3v"
+}

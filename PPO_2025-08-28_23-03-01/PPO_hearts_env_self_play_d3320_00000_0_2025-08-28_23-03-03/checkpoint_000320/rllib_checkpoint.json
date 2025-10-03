@@ -1,0 +1,1 @@
+{"type": "Algorithm", "checkpoint_version": "1.1", "format": "cloudpickle", "state_file": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000320/algorithm_state.pkl", "policy_ids": ["default_policy"], "ray_version": "2.47.1", "ray_commit": "61d3f2f1aa33563faa398105f4abda88cb39440b"}

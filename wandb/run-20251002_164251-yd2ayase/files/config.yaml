@@ -1,0 +1,99 @@
+_wandb:
+    value:
+        cli_version: 0.22.1
+        e:
+            7uvu5q0ixz5zd1fyzfp722s62uac57xr:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 10
+                    memoryGb: 16
+                    name: Apple M3
+                    pcpuCores: 4
+                    ramTotalBytes: "17179869184"
+                    swapTotalBytes: "2147483648"
+                codePath: main_self_play.py
+                codePathLocal: main_self_play.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "494384795648"
+                        used: "375098912768"
+                email: mason@choey.com
+                executable: /Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/bin/python3
+                git:
+                    commit: 0143195f773fd4882c27da116f06931c5d1f58db
+                    remote: https://github.com/masonchoey/Hearts.git
+                host: Masons-MacBook-Air.local
+                memory:
+                    total: "17179869184"
+                os: macOS-14.5-arm64-arm-64bit-Mach-O
+                program: /Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py
+                python: CPython 3.13.5
+                root: /Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts
+                startedAt: "2025-10-02T23:42:51.367750Z"
+                writerId: 7uvu5q0ixz5zd1fyzfp722s62uac57xr
+        m: []
+        python_version: 3.13.5
+        t:
+            "1":
+                - 1
+                - 30
+            "2":
+                - 1
+                - 30
+            "3":
+                - 2
+                - 13
+                - 15
+                - 16
+            "4": 3.13.5
+            "5": 0.22.1
+            "12": 0.22.1
+            "13": darwin-arm64
+algorithm:
+    value: PPO
+clip_param:
+    value: 0.2
+embed_dim:
+    value: 64
+entropy_coeff:
+    value: 0.05
+env:
+    value: hearts_env_self_play
+evaluation_duration:
+    value: 300
+evaluation_interval:
+    value: 15
+framework:
+    value: torch
+gamma:
+    value: 0.99
+grad_clip:
+    value: 0.5
+lambda:
+    value: 0.95
+learning_rate:
+    value: 0.0002
+minibatch_size:
+    value: 32
+model_type:
+    value: masked_attention_model
+num_attention_heads:
+    value: 2
+num_attention_layers:
+    value: 1
+num_env_runners:
+    value: 7
+num_envs_per_env_runner:
+    value: 1
+num_epochs:
+    value: 20
+resumed_from_checkpoint:
+    value: false
+total_iterations:
+    value: 250
+train_batch_size:
+    value: 12000
+vf_loss_coeff:
+    value: 2

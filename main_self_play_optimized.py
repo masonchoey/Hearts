@@ -18,7 +18,7 @@ import torch.nn as nn
 from gymnasium import spaces as gym_spaces
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models import ModelCatalog
-
+from attention_model import AttentionMaskModel
 
 def env_creator_self_play(env_config):
     """Factory that builds a self-play OpenSpiel Hearts environment for RLlib."""
@@ -28,72 +28,72 @@ def env_creator_self_play(env_config):
 register_env("hearts_env_self_play", env_creator_self_play)
 
 
-class ActionMaskModel(TorchModelV2, nn.Module):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-        TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
-        nn.Module.__init__(self)
+# class ActionMaskModel(TorchModelV2, nn.Module):
+#     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
+#         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
+#         nn.Module.__init__(self)
 
-        self.num_outputs = num_outputs
+#         self.num_outputs = num_outputs
 
-        # Read hidden sizes from config or use sensible defaults
-        hiddens = model_config.get("fcnet_hiddens", [256, 256])
-        layers = []
+#         # Read hidden sizes from config or use sensible defaults
+#         hiddens = model_config.get("fcnet_hiddens", [256, 256])
+#         layers = []
 
-        # Determine observation dimensionality robustly (Dict or Box)
-        base_space = getattr(obs_space, "original_space", obs_space)
-        if isinstance(base_space, gym_spaces.Dict) and "observations" in base_space.spaces:
-            obs_dim = int(np.prod(base_space["observations"].shape))
-        else:
-            # Fallback: already flattened Box
-            obs_dim = int(np.prod(base_space.shape))
+#         # Determine observation dimensionality robustly (Dict or Box)
+#         base_space = getattr(obs_space, "original_space", obs_space)
+#         if isinstance(base_space, gym_spaces.Dict) and "observations" in base_space.spaces:
+#             obs_dim = int(np.prod(base_space["observations"].shape))
+#         else:
+#             # Fallback: already flattened Box
+#             obs_dim = int(np.prod(base_space.shape))
 
-        last_dim = obs_dim
-        for hidden_size in hiddens:
-            layers.append(nn.Linear(last_dim, hidden_size))
-            layers.append(nn.ReLU())
-            last_dim = hidden_size
+#         last_dim = obs_dim
+#         for hidden_size in hiddens:
+#             layers.append(nn.Linear(last_dim, hidden_size))
+#             layers.append(nn.ReLU())
+#             last_dim = hidden_size
 
-        self.policy_net = nn.Sequential(*layers)
-        self.logits_layer = nn.Linear(last_dim, num_outputs)
-        self.value_net = nn.Sequential(
-            nn.Linear(last_dim, max(128, last_dim)),
-            nn.ReLU(),
-            nn.Linear(max(128, last_dim), 1),
-        )
+#         self.policy_net = nn.Sequential(*layers)
+#         self.logits_layer = nn.Linear(last_dim, num_outputs)
+#         self.value_net = nn.Sequential(
+#             nn.Linear(last_dim, max(128, last_dim)),
+#             nn.ReLU(),
+#             nn.Linear(max(128, last_dim), 1),
+#         )
 
-        self._value_out = None
+#         self._value_out = None
 
-    def forward(self, input_dict, state, seq_lens):
-        obs_tensor = input_dict["obs"]
-        # Support both Dict obs and flattened Tensor obs
-        if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
-            obs = obs_tensor["observations"].float()
-            action_mask = obs_tensor.get("action_mask", None)
-            if action_mask is not None:
-                action_mask = action_mask.float()
-        else:
-            obs = obs_tensor.float()
-            action_mask = None
+#     def forward(self, input_dict, state, seq_lens):
+#         obs_tensor = input_dict["obs"]
+#         # Support both Dict obs and flattened Tensor obs
+#         if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
+#             obs = obs_tensor["observations"].float()
+#             action_mask = obs_tensor.get("action_mask", None)
+#             if action_mask is not None:
+#                 action_mask = action_mask.float()
+#         else:
+#             obs = obs_tensor.float()
+#             action_mask = None
 
-        features = self.policy_net(obs)
-        logits = self.logits_layer(features)
+#         features = self.policy_net(obs)
+#         logits = self.logits_layer(features)
 
-        if action_mask is not None:
-            # log(0) -> -inf, log(1) -> 0
-            inf_mask = torch.clamp(torch.log(action_mask), min=torch.finfo(torch.float32).min)
-            logits = logits + inf_mask
+#         if action_mask is not None:
+#             # log(0) -> -inf, log(1) -> 0
+#             inf_mask = torch.clamp(torch.log(action_mask), min=torch.finfo(torch.float32).min)
+#             logits = logits + inf_mask
 
-        # Store value output
-        self._value_out = self.value_net(features).squeeze(-1)
+#         # Store value output
+#         self._value_out = self.value_net(features).squeeze(-1)
 
-        return logits, state
+#         return logits, state
 
-    def value_function(self):
-        return self._value_out
+#     def value_function(self):
+#         return self._value_out
 
 
 # Register the custom model so it can be referenced by name in the config
-ModelCatalog.register_custom_model("masked_action_model", ActionMaskModel)
+ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
 
 
 def parse_arguments():
@@ -132,7 +132,7 @@ def main():
         )
         .training(
             model={
-                "custom_model": "masked_action_model",
+                "custom_model": "masked_attention_model",
                 "fcnet_hiddens": [1024, 1024, 512],  # Larger 3-layer network for T4
                 "use_lstm": False,
                 "max_seq_len": 1,
@@ -143,8 +143,8 @@ def main():
             train_batch_size=32000,     # Very large batch size leveraging T4's 16GB memory
             lr=5e-5,                   # Lower LR for stability with very large batches
             lr_schedule=None,          # Constant learning rate
-            entropy_coeff=0.01,        # Slightly lower entropy for more focused learning
-            vf_loss_coeff=1.0,
+            entropy_coeff=0.05,        # Slightly lower entropy for more focused learning
+            vf_loss_coeff=2.0,
             clip_param=0.2,
             grad_clip=1.0,             # Slightly higher grad clip for large batches
             use_gae=True,
@@ -161,7 +161,7 @@ def main():
         )
         .evaluation(
             evaluation_interval=25,     # Regular evaluation
-            evaluation_duration=50,     # Thorough evaluation
+            evaluation_duration=300,     # Thorough evaluation
             evaluation_duration_unit="episodes",
             evaluation_config={"explore": False}
         )

@@ -1,0 +1,66 @@
+🚀 MPS (GPU) is available! Training will use Apple Silicon GPU acceleration.
+2025-10-02 17:34:16,360	WARNING deprecation.py:50 -- DeprecationWarning: `AlgorithmConfig.resources(num_cpus_per_learner_worker)` has been deprecated. Use `AlgorithmConfig.learners(num_cpus_per_learner)` instead. This will raise an error in the future!
+Starting PPO Self-Play Training...
+In self-play mode, the agent learns by playing against copies of itself.
+This should lead to more sophisticated strategies over time.
+Press Ctrl+C at any time to stop training early.
+----------------------------------------------------------------------
+Note: Checkpoint rotation is only available when resuming training.
+Start training first, then resume with checkpoint rotation enabled.
+2025-10-02 17:34:16,967	INFO worker.py:1927 -- Started a local Ray instance.
+2025-10-02 17:34:17,428	INFO tune.py:253 -- Initializing Ray automatically. For cluster usage or custom Ray initialization, call `ray.init(...)` before `Tuner(...)`.
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/spaces/box.py:235: UserWarning: [33mWARN: Box low's precision lowered by casting to float32, current low.dtype=float64[0m
+  gym.logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/spaces/box.py:305: UserWarning: [33mWARN: Box high's precision lowered by casting to float32, current high.dtype=float64[0m
+  gym.logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/utils/passive_env_checker.py:134: UserWarning: [33mWARN: The obs returned by the `reset()` method was expecting numpy array dtype to be float32, actual type: float64[0m
+  logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/utils/passive_env_checker.py:158: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+2025-10-02 17:34:17,481	INFO wandb.py:321 -- Already logged into W&B.
+╭────────────────────────────────────────────────────────────╮
+│ Configuration for experiment     PPO_2025-10-02_17-34-16   │
+├────────────────────────────────────────────────────────────┤
+│ Search algorithm                 BasicVariantGenerator     │
+│ Scheduler                        FIFOScheduler             │
+│ Number of trials                 1                         │
+╰────────────────────────────────────────────────────────────╯
+
+View detailed results here: /Users/masonchoey/ray_results/PPO_2025-10-02_17-34-16
+To visualize your results with TensorBoard, run: `tensorboard --logdir /tmp/ray/session_2025-10-02_17-34-16_375996_51883/artifacts/2025-10-02_17-34-17/PPO_2025-10-02_17-34-16/driver_artifacts`
+
+Trial status: 1 PENDING
+Current time: 2025-10-02 17:34:17. Total running time: 0s
+Logical resource usage: 0/8 CPUs, 0/0 GPUs
+╭─────────────────────────────────────────────────╮
+│ Trial name                             status   │
+├─────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_b1eee_00000   PENDING  │
+╰─────────────────────────────────────────────────╯
+[36m(autoscaler +8s)[0m Tip: use `ray status` to view detailed cluster status. To disable these messages, set RAY_SCHEDULER_EVENTS=0.
+[33m(autoscaler +8s)[0m Error: No available node types can fulfill resource request {'GPU': 1.0, 'CPU': 1.0}. Add suitable node types to this cluster to resolve this issue.
+2025-10-02 17:34:37,702	WARNING tune.py:219 -- Stop signal received (e.g. via SIGINT/Ctrl+C), ending Ray Tune run. This will try to checkpoint the experiment state one last time. Press CTRL+C (or send SIGINT/SIGKILL/SIGTERM) to skip.
+2025-10-02 17:34:37,705	INFO tune.py:1009 -- Wrote the latest version of all result files and experiment state to '/Users/masonchoey/ray_results/PPO_2025-10-02_17-34-16' in 0.0026s.
+Trial status: 1 PENDING
+Current time: 2025-10-02 17:34:37. Total running time: 20s
+Logical resource usage: 0/8 CPUs, 0/0 GPUs
+╭─────────────────────────────────────────────────╮
+│ Trial name                             status   │
+├─────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_b1eee_00000   PENDING  │
+╰─────────────────────────────────────────────────╯
+2025-10-02 17:34:37,709	WARNING tune.py:1056 -- Experiment has been interrupted, but the most recent state was saved.
+Resume experiment with: Tuner.restore(path="/Users/masonchoey/ray_results/PPO_2025-10-02_17-34-16", trainable=...)
+2025-10-02 17:34:37,711	WARNING experiment_analysis.py:180 -- Failed to fetch metrics for 1 trial(s):
+- PPO_hearts_env_self_play_b1eee_00000: FileNotFoundError('Could not fetch metrics for PPO_hearts_env_self_play_b1eee_00000: both result.json and progress.csv were not found at /Users/masonchoey/ray_results/PPO_2025-10-02_17-34-16/PPO_hearts_env_self_play_b1eee_00000_0_2025-10-02_17-34-17')
+
+
+======================================================================
+Self-Play Training completed successfully!
+Final results:
+Best trial: Result(
+  metrics={},
+  path='/Users/masonchoey/ray_results/PPO_2025-10-02_17-34-16/PPO_hearts_env_self_play_b1eee_00000_0_2025-10-02_17-34-17',
+  filesystem='local',
+  checkpoint=None
+)

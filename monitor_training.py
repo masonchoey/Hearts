@@ -11,14 +11,16 @@ import json
 import time
 import argparse
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 class TrainingMonitor:
     """Monitor training progress and compare against baseline."""
     
-    def __init__(self, baseline_reward=-3):
+    def __init__(self, baseline_reward=-1.35):
         self.baseline_reward = baseline_reward
         self.baseline_invalid_rate = 0.966  # 96.6% from your results
+        self.baseline_vf_explained = 0.43  # Current VF explained variance from checkpoint_000500
         
     def load_training_data(self, results_dir):
         """Load training data from Ray results directory."""
@@ -61,9 +63,10 @@ class TrainingMonitor:
         # Value function learning
         latest_vf_explained = df["info/learner/default_policy/learner_stats/vf_explained_var"].iloc[-1]
         print(f"\n🧠 VALUE FUNCTION LEARNING:")
-        print(f"  Baseline VF Explained Variance: 0.00017")
+        print(f"  Baseline VF Explained Variance: {self.baseline_vf_explained:.5f}")
         print(f"  Current VF Explained Variance:  {latest_vf_explained:.5f}")
-        print(f"  Improvement: {(latest_vf_explained / 0.00017):.1f}x better")
+        vf_improvement = (latest_vf_explained / self.baseline_vf_explained) if self.baseline_vf_explained > 0 else float('inf')
+        print(f"  Improvement: {vf_improvement:.2f}x better")
         
         # Policy loss and entropy
         latest_policy_loss = df["info/learner/default_policy/learner_stats/policy_loss"].iloc[-1]
@@ -81,7 +84,7 @@ class TrainingMonitor:
         return {
             "reward_improvement": reward_improvement,
             "latest_reward": latest_reward,
-            "vf_improvement": latest_vf_explained / 0.00017,
+            "vf_improvement": vf_improvement,
             "latest_vf_explained": latest_vf_explained,
             "reward_stability": reward_std
         }
@@ -183,9 +186,9 @@ This report compares the current training results against the baseline performan
 - **Improvement**: {improvements['reward_improvement']:.1f}%
 
 ### 🧠 Value Function Learning  
-- **Baseline VF Explained Variance**: 0.00017
+- **Baseline VF Explained Variance**: {self.baseline_vf_explained:.5f}
 - **Current VF Explained Variance**: {improvements['latest_vf_explained']:.5f}
-- **Improvement Factor**: {improvements['vf_improvement']:.1f}x
+- **Improvement Factor**: {improvements['vf_improvement']:.2f}x
 
 ### 📊 Training Stability
 - **Reward Standard Deviation**: {improvements['reward_stability']:.2f}
@@ -198,7 +201,7 @@ This report compares the current training results against the baseline performan
 2. **Improve action masking** - Ensure invalid actions are properly masked
 3. **Tune hyperparameters** - Adjust learning rate and batch sizes
 
-### If VF Explained Variance < 0.1:
+### If VF Explained Variance shows decline:
 1. **Increase vf_loss_coeff** to strengthen value learning
 2. **Add state normalization** for better value function approximation
 3. **Consider deeper networks** for more complex value estimation
@@ -227,62 +230,70 @@ Generated from: {results_dir}
 
 def monitor_latest_training():
     """Monitor the latest training run."""
+    # Load environment variables from .env file
+    load_dotenv()
+    
     monitor = TrainingMonitor()
     
-    # Look for PPO results in OpenSpiel-Hearts project structure
-    # This includes:
-    # 1. Direct PPO directories in root (e.g., PPO_hearts_env_enhanced_04b34_00000_0_2025-07-29_12-34-18/)
-    # 2. PPO directories in phase folders (e.g., hearts_phase1_basic/PPO_hearts_env_a37e7_00000_0_2025-07-29_12-31-35/)
-    # 3. Standard ray_results directories (for compatibility)
+    # Default to the latest checkpoint path
+    default_checkpoint_path = "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/PPO_2025-08-28_23-03-01/PPO_hearts_env_self_play_d3320_00000_0_2025-08-28_23-03-03/checkpoint_000500"
     
-    possible_dirs = [
-        ".",  # Root directory - check for direct PPO folders
-        "hearts_phase1_basic",  # Phase 1 training results
-        "hearts_phase2_enhanced",  # Phase 2 training results  
-        "ray_results",  # Standard Ray results directory
-        os.path.expanduser("~/ray_results"),  # User's home ray_results
-    ]
+    # Check if CHECKPOINT_PATH is specified in environment variables, otherwise use default
+    checkpoint_path = os.getenv("CHECKPOINT_PATH", default_checkpoint_path)
     
-    results_dir = None
-    found_ppo_dirs = []
-    
-    for dir_path in possible_dirs:
-        if os.path.exists(dir_path):
-            try:
-                items = [d for d in os.listdir(dir_path) if "PPO" in d and os.path.isdir(os.path.join(dir_path, d))]
-                if items:
-                    # Store both the parent directory and the PPO directories found
-                    for ppo_dir in items:
-                        found_ppo_dirs.append((dir_path, ppo_dir, os.path.join(dir_path, ppo_dir)))
-            except PermissionError:
-                continue
-    
-    if not found_ppo_dirs:
-        print("❌ No PPO training results found in OpenSpiel-Hearts project structure.")
-        print("\n🔍 Searched in:")
-        for dir_path in possible_dirs:
-            status = "✓ exists" if os.path.exists(dir_path) else "✗ not found"
-            print(f"  - {dir_path} ({status})")
-        print("\n💡 Expected structure:")
-        print("  - PPO_*/progress.csv (direct in root)")
-        print("  - hearts_phase1_basic/PPO_*/progress.csv")
-        print("  - hearts_phase2_enhanced/PPO_*/progress.csv")
-        return
-    
-    # Select the most recent PPO directory based on modification time
-    latest_ppo = max(found_ppo_dirs, key=lambda x: os.path.getmtime(x[2]))
-    results_dir = latest_ppo[0]  # Parent directory
-    ppo_subdir = latest_ppo[1]   # PPO directory name
-    
-    print(f"📁 Found {len(found_ppo_dirs)} PPO training result(s)")
-    print(f"📁 Monitoring latest: {latest_ppo[2]}")
-    
-    # Use the parent directory for load_training_data since it expects to search for PPO dirs
-    data = monitor.load_training_data(results_dir)
-    if data is None:
-        return
+    if checkpoint_path:
+        if checkpoint_path == default_checkpoint_path:
+            print(f"🎯 Using default checkpoint path: {checkpoint_path}")
+        else:
+            print(f"🎯 Using CHECKPOINT_PATH from environment: {checkpoint_path}")
         
-    df, latest_dir = data
+        # Convert to absolute path
+        checkpoint_path = os.path.abspath(checkpoint_path)
+        
+        if not os.path.exists(checkpoint_path):
+            print(f"❌ Checkpoint path does not exist: {checkpoint_path}")
+            print("\n🔧 CHECKPOINT_PATH TROUBLESHOOTING:")
+            print("1. Verify the path exists and is accessible")
+            print("2. Check if training has generated the expected checkpoint")
+            print("3. Use absolute paths for best results")
+            return
+        
+        # Determine the results directory (parent of checkpoint or checkpoint itself if it contains progress.csv)
+        results_dir = checkpoint_path
+        progress_file = os.path.join(checkpoint_path, "progress.csv")
+        
+        # If progress.csv is not directly in checkpoint_path, look in parent directory structure
+        if not os.path.exists(progress_file):
+            # Try going up directory levels to find the training run directory
+            current_path = checkpoint_path
+            while current_path != os.path.dirname(current_path):  # Stop at root
+                parent = os.path.dirname(current_path)
+                potential_progress = os.path.join(parent, "progress.csv")
+                if os.path.exists(potential_progress):
+                    results_dir = os.path.dirname(parent)  # Parent of the directory containing progress.csv
+                    break
+                current_path = parent
+            else:
+                print(f"❌ No progress.csv found in or above: {checkpoint_path}")
+                print("💡 Expected structure: training_run_dir/progress.csv")
+                return
+        else:
+            # progress.csv is directly in checkpoint_path, so use its parent as results_dir
+            results_dir = os.path.dirname(checkpoint_path)
+        
+        print(f"📁 Using results directory: {results_dir}")
+        
+        # Load training data from the specified path
+        data = monitor.load_training_data(results_dir)
+        if data is None:
+            return
+            
+        df, latest_dir = data
+        print(f"📁 Monitoring: {latest_dir}")
+
+    else:
+        print("❌ No checkpoint path available")
+        return
     
     # Analyze and report
     improvements = monitor.analyze_improvements(df)
@@ -304,14 +315,14 @@ def monitor_latest_training():
     elif improvements['reward_improvement'] > 0:
         print("⚠️  MODERATE: Some reward improvement, consider tuning")
     else:
-        print("❌ CONCERN: No reward improvement, needs investigation")
+        print("❌ CONCERN: Reward declining, needs investigation")
         
-    if improvements['vf_improvement'] > 10:
-        print("✅ GOOD: Value function learning much improved!")
-    elif improvements['vf_improvement'] > 2:
-        print("⚠️  MODERATE: Value function improving")
+    if improvements['vf_improvement'] > 1.2:
+        print("✅ GOOD: Value function learning improved!")
+    elif improvements['vf_improvement'] > 0.9:
+        print("⚠️  MODERATE: Value function stable")
     else:
-        print("❌ CONCERN: Value function still not learning well")
+        print("❌ CONCERN: Value function declining, needs attention")
 
 
 if __name__ == "__main__":
@@ -376,6 +387,9 @@ if __name__ == "__main__":
                 (line,) = ax.plot(x, y, **kwargs)
                 lines[key] = line
 
+        # Load environment variables from .env file
+        load_dotenv()
+        
         monitor = TrainingMonitor()
 
         last_size = 0

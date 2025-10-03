@@ -53,7 +53,7 @@ from collections import defaultdict
 from ray.rllib.algorithms.ppo import PPO
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.registry import register_env
-# from hearts_env_conservative import HeartsGymEnvConservative
+from hearts_env_conservative import HeartsGymEnvConservative
 from hearts_env_self_play import HeartsGymEnvSelfPlay
 import torch
 import torch.nn as nn
@@ -67,6 +67,7 @@ import json
 from datetime import datetime
 from termcolor import colored
 from dotenv import load_dotenv
+from attention_model import AttentionMaskModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -114,6 +115,32 @@ def get_remaining_point_cards(played_cards):
     
     return remaining_point_cards
 
+def get_remaining_cards_by_suit(played_cards):
+    """Get remaining cards organized by suit.
+    
+    Returns:
+        dict: Dictionary with keys 'spades', 'hearts', 'clubs', 'diamonds'
+              Each value is a list of remaining cards in that suit
+    """
+    # OpenSpiel Hearts card encoding: card = (rank - 2) * 4 + suit
+    # Suits: 0=diamonds, 1=clubs, 2=hearts, 3=spades
+    # Ranks: 2-14 (2, 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A)
+    
+    # Generate all cards by suit
+    all_cards_by_suit = {
+        'diamonds': [rank * 4 + 0 for rank in range(13)],  # 0, 4, 8, 12, ..., 48
+        'clubs': [rank * 4 + 1 for rank in range(13)],     # 1, 5, 9, 13, ..., 49
+        'hearts': [rank * 4 + 2 for rank in range(13)],    # 2, 6, 10, 14, ..., 50
+        'spades': [rank * 4 + 3 for rank in range(13)]     # 3, 7, 11, 15, ..., 51
+    }
+    
+    # Find remaining cards for each suit
+    remaining_by_suit = {}
+    for suit, all_cards in all_cards_by_suit.items():
+        remaining_by_suit[suit] = [card for card in all_cards if card not in played_cards]
+    
+    return remaining_by_suit
+
 def format_card_list(cards, title):
     """Format a list of cards for terminal display."""
     if not cards:
@@ -124,68 +151,14 @@ def format_card_list(cards, title):
 
 def env_creator_conservative(env_config):
     """Factory that builds a conservative-opponent Hearts environment for RLlib."""
-    # return HeartsGymEnvConservative(env_config)
-    return 'HI'
+    return HeartsGymEnvConservative(env_config)
 
 def env_creator_self_play(env_config):
     """Factory that builds a self-play Hearts environment for RLlib."""
     return HeartsGymEnvSelfPlay(env_config)
 
-
-class ActionMaskModel(TorchModelV2, nn.Module):
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-        TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
-        nn.Module.__init__(self)
-
-        self.num_outputs = num_outputs
-        hiddens = model_config.get("fcnet_hiddens", [256, 256])
-
-        base_space = getattr(obs_space, "original_space", obs_space)
-        if isinstance(base_space, gym_spaces.Dict) and "observations" in base_space.spaces:
-            obs_dim = int(np.prod(base_space["observations"].shape))
-        else:
-            obs_dim = int(np.prod(base_space.shape))
-
-        layers = []
-        last_dim = obs_dim
-        for hidden_size in hiddens:
-            layers.append(nn.Linear(last_dim, hidden_size))
-            layers.append(nn.ReLU())
-            last_dim = hidden_size
-
-        self.policy_net = nn.Sequential(*layers)
-        self.logits_layer = nn.Linear(last_dim, num_outputs)
-        self.value_net = nn.Sequential(
-            nn.Linear(last_dim, max(128, last_dim)),
-            nn.ReLU(),
-            nn.Linear(max(128, last_dim), 1),
-        )
-        self._value_out = None
-
-    def forward(self, input_dict, state, seq_lens):
-        obs_tensor = input_dict["obs"]
-        if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
-            obs = obs_tensor["observations"].float()
-            action_mask = obs_tensor.get("action_mask", None)
-            if action_mask is not None:
-                action_mask = action_mask.float()
-        else:
-            obs = obs_tensor.float()
-            action_mask = None
-        features = self.policy_net(obs)
-        logits = self.logits_layer(features)
-        if action_mask is not None:
-            inf_mask = torch.clamp(torch.log(action_mask), min=torch.finfo(torch.float32).min)
-            logits = logits + inf_mask
-        self._value_out = self.value_net(features).squeeze(-1)
-        return logits, state
-
-    def value_function(self):
-        return self._value_out
-
-
 # Ensure the custom model is registered for inference time as well
-ModelCatalog.register_custom_model("masked_action_model", ActionMaskModel)
+ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
 
 class BotTypes:
     """Different types of bot strategies for Hearts."""
@@ -237,7 +210,7 @@ class RLvsBotsSimulator:
         register_env("hearts_env_self_play", env_creator_self_play)
         
         # Build PPO agent with the same custom masked model
-        ModelCatalog.register_custom_model("masked_action_model", ActionMaskModel)
+        ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
         
         # Choose environment based on bot type
         if self.bot_type == "conservative":
@@ -247,13 +220,14 @@ class RLvsBotsSimulator:
         else:
             raise ValueError(f"Invalid bot type or bot type not specified: {self.bot_type}")
         
-        # Create PPO config template
+        # Create PPO config template - try to match checkpoint configuration
+        # First try with T4-optimized config (larger network), fallback to smaller if needed
         config = (
             PPOConfig()
             .api_stack(enable_rl_module_and_learner=False, enable_env_runner_and_connector_v2=False)
             .environment(env_name)
             .framework("torch")
-            .training(model={"custom_model": "masked_action_model", "fcnet_hiddens": [256, 256]})
+            .training(model={"custom_model": "masked_attention_model", "fcnet_hiddens": [1024, 1024, 512]})
             .env_runners(num_env_runners=0)
         )
         
@@ -269,7 +243,24 @@ class RLvsBotsSimulator:
                 self.agents[0].restore(model_path)
                 print("✅ Successfully restored Player 0 trained PPO agent")
             except Exception as e:
-                raise Exception(f"⚠️ Player 0 restore failed: {e}. Continuing with untrained weights.")
+                print(f"⚠️ Player 0 restore failed with T4 config: {e}")
+                print("🔄 Trying with smaller network configuration...")
+                
+                # Try with smaller network configuration as fallback
+                try:
+                    fallback_config = (
+                        PPOConfig()
+                        .api_stack(enable_rl_module_and_learner=False, enable_env_runner_and_connector_v2=False)
+                        .environment(env_name)
+                        .framework("torch")
+                        .training(model={"custom_model": "masked_attention_model", "fcnet_hiddens": [256, 256]})
+                        .env_runners(num_env_runners=0)
+                    )
+                    self.agents[0] = fallback_config.build()
+                    self.agents[0].restore(model_path)
+                    print("✅ Successfully restored Player 0 with fallback configuration")
+                except Exception as fallback_e:
+                    raise Exception(f"⚠️ Player 0 restore failed: {e}. Fallback also failed: {fallback_e}. Continuing with untrained weights.")
         
         # Players 1, 2, 3 - load from player-specific checkpoints if available
         player_checkpoints = {
@@ -326,10 +317,8 @@ class RLvsBotsSimulator:
         elif self.bot_type == "self":
             # For self-play, we don't use bot strategies - all players are RL agents
             self.bot_strategies = {}
-        else:  # random
-            self.bot_strategies = {
-                "pure_random": BotTypes.pure_random,
-            }
+        else:
+            raise ValueError(f"Unsupported bot type: {self.bot_type}. Supported types: 'conservative', 'self'")
     
     # Removed _create_fresh_action_mask method - no longer needed with single-state architecture
 
@@ -416,8 +405,8 @@ class RLvsBotsSimulator:
             opponent_strategies = ["conservative", "conservative", "conservative"]
         elif self.bot_type == "self":
             opponent_strategies = ["self_play", "self_play", "self_play"]
-        else:  # random
-            opponent_strategies = ["pure_random", "pure_random", "pure_random"]
+        else:
+            raise ValueError(f"Unsupported bot type: {self.bot_type}. Supported types: 'conservative', 'self'")
         
         if verbose:
             print("\n🃏 Starting new Hearts game:")
@@ -480,7 +469,7 @@ class RLvsBotsSimulator:
             if should_act:
                 self.total_rl_moves_count += 1
                 
-                if debug_rl:
+                if debug_rl and current_player == 0:  # Only show debug for player 0
                     print(f"\n🔍 RL AGENT DECISION #{self.total_rl_moves_count}:")
                     
                     # Try to determine current trick cards from game state
@@ -509,21 +498,43 @@ class RLvsBotsSimulator:
                     else:
                         print(f"   🃏 Current Trick Cards: None (start of trick)")
                     
-                    # Show remaining point cards
-                    remaining_points = get_remaining_point_cards(played_cards)
-                    HEARTS_CARDS = [2, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46, 50]
-                    hearts_remaining = [card for card in remaining_points if card in HEARTS_CARDS]
-                    queen_remaining = [card for card in remaining_points if card == 43]
+                    # Show remaining cards by suit
+                    remaining_by_suit = get_remaining_cards_by_suit(played_cards)
                     
+                    # Show remaining hearts (point cards)
+                    hearts_remaining = remaining_by_suit['hearts']
                     if hearts_remaining:
                         print(f"   ❤️  Remaining Hearts: {', '.join([show_card(card) for card in hearts_remaining])}")
                     else:
                         print(f"   ❤️  Remaining Hearts: None")
-                        
-                    if queen_remaining:
-                        print(f"   ♠️  Queen of Spades: {show_card(43)} (still in play)")
+                    
+                    # Show Queen of Spades specifically (important point card)
+                    QUEEN_OF_SPADES = 43
+                    if QUEEN_OF_SPADES in remaining_by_suit['spades']:
+                        print(f"   ♠️  Queen of Spades: {show_card(QUEEN_OF_SPADES)} (still in play)")
                     else:
                         print(f"   ♠️  Queen of Spades: Already played")
+                    
+                    # Show remaining spades (excluding Queen which is shown above)
+                    spades_remaining = [card for card in remaining_by_suit['spades'] if card != QUEEN_OF_SPADES]
+                    if spades_remaining:
+                        print(f"   ♠️  Remaining Spades: {', '.join([show_card(card) for card in spades_remaining])}")
+                    else:
+                        print(f"   ♠️  Remaining Spades: None (excluding Queen)")
+                    
+                    # Show remaining clubs
+                    clubs_remaining = remaining_by_suit['clubs']
+                    if clubs_remaining:
+                        print(f"   ♣️  Remaining Clubs: {', '.join([show_card(card) for card in clubs_remaining])}")
+                    else:
+                        print(f"   ♣️  Remaining Clubs: None")
+                    
+                    # Show remaining diamonds
+                    diamonds_remaining = remaining_by_suit['diamonds']
+                    if diamonds_remaining:
+                        print(f"   ♦️  Remaining Diamonds: {', '.join([show_card(card) for card in diamonds_remaining])}")
+                    else:
+                        print(f"   ♦️  Remaining Diamonds: None")
                     
                     print(f"   🎯 Legal Actions: {len(legal_actions)} options")
                     for i, action in enumerate(legal_actions):
@@ -544,7 +555,7 @@ class RLvsBotsSimulator:
                     if current_player in self.agent_states:
                         self.agent_states[current_player] = new_agent_state
                     
-                    if debug_rl:
+                    if debug_rl and current_player == 0:  # Only show debug for player 0
                         print(f"   🧠 RL Policy Output:")
                         print(f"      Selected Action: {action}")
                         if action < 52:
@@ -561,27 +572,28 @@ class RLvsBotsSimulator:
                     # Verify action is legal (should never fail with proper action masking)
                     if action in legal_actions:
                         chosen_action = action
-                        if debug_rl:
+                        if debug_rl and current_player == 0:  # Only show debug for player 0
                             print(f"   ✅ Action {action} ({show_card(action) if action < 52 else f'Action-{action}'}) is LEGAL")
                     else:
                         # This should not happen with proper action masking
                         self.invalid_moves_count += 1
                         chosen_action = random.choice(legal_actions)
                         print(f"🚨 UNEXPECTED: RL agent suggested illegal action {action}, using {chosen_action}")
-                        if debug_rl:
+                        if debug_rl and current_player == 0:  # Only show debug for player 0
                             print(f"   ❌ Action {action} is ILLEGAL! Using random fallback: {chosen_action} ({show_card(chosen_action)})")
 
                 except Exception as e:
                     self.invalid_moves_count += 1
                     print(f"❌ Error with RL agent: {e}, using random action")
                     chosen_action = random.choice(legal_actions) if legal_actions else 0
-                    if debug_rl:
+                    if debug_rl and current_player == 0:  # Only show debug for player 0
                         print(f"   💥 RL Policy Error: {e}")
                         print(f"   🎲 Using random fallback: {chosen_action} ({show_card(chosen_action)})")
                 
                 # Store decision details for analysis
                 decision_info = {
                     'turn': game_turn,
+                    'player_id': current_player,  # Track which player made this decision
                     'legal_actions': legal_actions.copy(),
                     'chosen_action': chosen_action,
                     'was_legal': chosen_action in legal_actions,
@@ -589,9 +601,9 @@ class RLvsBotsSimulator:
                 }
                 rl_decisions.append(decision_info)
                 
-                if verbose and game_turn % 20 == 0:
+                if verbose and game_turn % 20 == 0 and current_player == 0:  # Only show verbose for player 0
                     print(f"  🤖 RL Agent plays action {chosen_action} ({show_card(chosen_action)})")
-                elif debug_rl:
+                elif debug_rl and current_player == 0:  # Only show debug for player 0
                     print(f"   🎯 FINAL DECISION: Playing {chosen_action} ({show_card(chosen_action)})")
                 
                 # Apply action to gym environment
@@ -613,14 +625,14 @@ class RLvsBotsSimulator:
                                 
                     except Exception as history_error:
                         # If history tracking fails, fall back to simple tracking
-                        if debug_rl:
+                        if debug_rl and current_player == 0:  # Only show debug for player 0
                             print(f"   ⚠️ Game history tracking failed: {history_error}")
                         # At minimum, track the RL agent's move
                         if chosen_action not in played_cards:
                             played_cards.append(chosen_action)
                     
                     # Debug: show tracking results
-                    if debug_rl:
+                    if debug_rl and current_player == 0:  # Only show debug for player 0
                         print(f"   📝 Tracked cards: {len(played_cards)} total")
                         if len(played_cards) <= 10:  # Show details for early game
                             recent_cards = played_cards[-min(5, len(played_cards)):]
@@ -628,7 +640,7 @@ class RLvsBotsSimulator:
                     
                 except Exception as e:
                     print(f"❌ Gym environment error: {e}")
-                    if debug_rl:
+                    if debug_rl and current_player == 0:  # Only show debug for player 0
                         print(f"   💥 Environment Step Error: {e}")
                     done = True  # End game on error
             else:
@@ -665,12 +677,16 @@ class RLvsBotsSimulator:
         except Exception as e:
             # Fallback: use accumulated reward
             player_scores = [total_reward, 0, 0, 0]
-
         for i, player_score in enumerate(player_scores):
             player_scores[i] = 26 - player_score
         
-        # Determine winner (highest reward, or lowest score in Hearts)
-        winner = np.argmin(player_scores) if any(score != 0 for score in player_scores[1:]) else 0
+        # Determine winner(s) (highest reward, or lowest score in Hearts)
+        # Handle ties by finding all players with the minimum score
+        min_score = min(player_scores)
+        winners = [i for i, score in enumerate(player_scores) if score == min_score]
+        
+        # For backward compatibility, keep single winner field as the first winner
+        winner = winners[0] if winners else 0
         
         # Calculate percentage scores for all players
         EXPECTED_POINTS_PER_PLAYER = 26.0 / 4.0  # 6.5 points per player
@@ -682,6 +698,7 @@ class RLvsBotsSimulator:
             'player_percentages': player_percentages,
             'expected_points_per_player': EXPECTED_POINTS_PER_PLAYER,
             'winner': int(winner),
+            'winners': [int(w) for w in winners],  # List of all winners in case of ties
             'rl_agent_score': player_scores[0],
             'rl_agent_percentage': player_percentages[0],
             'rl_agent_rank': sorted(player_scores).index(player_scores[0]) + 1,
@@ -698,33 +715,37 @@ class RLvsBotsSimulator:
         }
         
         if debug_rl and rl_decisions:
-            print(f"\n🔍 RL AGENT DECISION SUMMARY:")
-            print(f"   Total RL Decisions: {len(rl_decisions)}")
-            legal_decisions = sum(1 for d in rl_decisions if d['was_legal'])
-            print(f"   Legal Decisions: {legal_decisions}/{len(rl_decisions)} ({100*legal_decisions/len(rl_decisions):.1f}%)")
+            # Filter decisions to only show player 0's decisions
+            player0_decisions = [d for d in rl_decisions if d.get('player_id', 0) == 0]
             
-            # Show first few and last few decisions
-            if len(rl_decisions) > 6:
-                print(f"   First 3 decisions:")
-                for i, decision in enumerate(rl_decisions[:3]):
-                    action = decision['chosen_action']
-                    card_name = show_card(action) if action < 52 else f"Action-{action}"
-                    legal_status = "✅" if decision['was_legal'] else "❌"
-                    print(f"      {i+1}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
+            if player0_decisions:
+                print(f"\n🔍 RL AGENT DECISION SUMMARY:")
+                print(f"   Total RL Decisions (Player 0): {len(player0_decisions)}")
+                legal_decisions = sum(1 for d in player0_decisions if d['was_legal'])
+                print(f"   Legal Decisions: {legal_decisions}/{len(player0_decisions)} ({100*legal_decisions/len(player0_decisions):.1f}%)")
                 
-                print(f"   Last 3 decisions:")
-                for i, decision in enumerate(rl_decisions[-3:]):
-                    action = decision['chosen_action']
-                    card_name = show_card(action) if action < 52 else f"Action-{action}"
-                    legal_status = "✅" if decision['was_legal'] else "❌"
-                    print(f"      {len(rl_decisions)-2+i}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
-            else:
-                print(f"   All decisions:")
-                for i, decision in enumerate(rl_decisions):
-                    action = decision['chosen_action']
-                    card_name = show_card(action) if action < 52 else f"Action-{action}"
-                    legal_status = "✅" if decision['was_legal'] else "❌"
-                    print(f"      {i+1}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
+                # Show first few and last few decisions
+                if len(player0_decisions) > 6:
+                    print(f"   First 3 decisions:")
+                    for i, decision in enumerate(player0_decisions[:3]):
+                        action = decision['chosen_action']
+                        card_name = show_card(action) if action < 52 else f"Action-{action}"
+                        legal_status = "✅" if decision['was_legal'] else "❌"
+                        print(f"      {i+1}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
+                    
+                    print(f"   Last 3 decisions:")
+                    for i, decision in enumerate(player0_decisions[-3:]):
+                        action = decision['chosen_action']
+                        card_name = show_card(action) if action < 52 else f"Action-{action}"
+                        legal_status = "✅" if decision['was_legal'] else "❌"
+                        print(f"      {len(player0_decisions)-2+i}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
+                else:
+                    print(f"   All decisions:")
+                    for i, decision in enumerate(player0_decisions):
+                        action = decision['chosen_action']
+                        card_name = show_card(action) if action < 52 else f"Action-{action}"
+                        legal_status = "✅" if decision['was_legal'] else "❌"
+                        print(f"      {i+1}. Turn {decision['turn']}: {action} ({card_name}) {legal_status}")
         
         if verbose:
             print(f"\n📊 Game Results:")
@@ -759,7 +780,7 @@ class RLvsBotsSimulator:
         elif self.bot_type == "conservative":
             print(f"Opponent Type: Conservative Strategy Bots")
         else:
-            print(f"Opponent Type: Random Bots")
+            print(f"Opponent Type: Unknown Bot Type")
         
         if debug_rl:
             debug_freq = debug_frequency if debug_frequency is not None else verbose_frequency
@@ -852,7 +873,7 @@ class RLvsBotsSimulator:
         elif self.bot_type == "conservative":
             print(f"🏆 SIMULATION ANALYSIS: TRAINED RL AGENT vs 3 CONSERVATIVE BOTS")
         else:
-            print(f"🏆 SIMULATION ANALYSIS: TRAINED RL AGENT vs 3 RANDOM BOTS")
+            print(f"🏆 SIMULATION ANALYSIS: TRAINED RL AGENT vs UNKNOWN BOT TYPE")
         print("="*60)
         
         # Calculate expected points per player (26 total points / 4 players)
@@ -861,7 +882,8 @@ class RLvsBotsSimulator:
         # Overall RL agent performance
         rl_scores = [r['rl_agent_score'] for r in self.game_results]
         rl_ranks = [r['rl_agent_rank'] for r in self.game_results]
-        rl_wins = sum(1 for r in self.game_results if r['winner'] == 0)
+        # Count wins including ties (player 0 is in the winners list)
+        rl_wins = sum(1 for r in self.game_results if 0 in r.get('winners', [r['winner']]))
         
         # Calculate cumulative percentage score for RL agent across all games
         total_rl_points = sum(rl_scores)
@@ -941,8 +963,11 @@ class RLvsBotsSimulator:
             # For self-play, analyze how often each player position wins
             position_wins = {1: 0, 2: 0, 3: 0}
             for result in self.game_results:
-                if result['winner'] != 0:  # RL agent didn't win
-                    position_wins[result['winner']] += 1
+                # Count wins including ties for each player position
+                winners = result.get('winners', [result['winner']])
+                for winner_pos in winners:
+                    if winner_pos in position_wins:  # Only count positions 1, 2, 3
+                        position_wins[winner_pos] += 1
             
             print(f"  Self-Play Analysis:")
             for pos in [1, 2, 3]:
@@ -955,13 +980,18 @@ class RLvsBotsSimulator:
                 bot_wins = {'conservative': 0}
                 bot_avg_scores = {'conservative': []}
             else:
-                bot_wins = {'pure_random': 0}
-                bot_avg_scores = {'pure_random': []}
+                # This should not happen with the current supported bot types
+                bot_wins = {}
+                bot_avg_scores = {}
             
             for result in self.game_results:
-                if result['winner'] != 0:  # RL agent didn't win
-                    strategy_name = result['bot_strategies'][0]
-                    bot_wins[strategy_name] += 1
+                # Count wins including ties for bots
+                winners = result.get('winners', [result['winner']])
+                for winner_pos in winners:
+                    if winner_pos != 0:  # Not the RL agent
+                        strategy_name = result['bot_strategies'][winner_pos - 1]  # Convert to 0-based index
+                        if strategy_name in bot_wins:
+                            bot_wins[strategy_name] += 1
                 
                 # Collect bot scores
                 for i, strategy in enumerate(result['bot_strategies']):
@@ -1081,8 +1111,8 @@ def find_ppo_checkpoint():
 
 def main():
     """Main function to run the RL vs Bots simulation."""
-    # Get bot type from environment variable
-    bot_type = os.getenv("BOT_TYPE")
+    # Get bot type from environment variable (default to conservative)
+    bot_type = os.getenv("BOT_TYPE", "conservative")
     # Check for debug mode - convert string to boolean properly
     debug_mode_str = os.getenv("DEBUG_RL", "false").lower().strip()
     debug_mode = debug_mode_str in ("true", "1", "yes", "on")
@@ -1094,7 +1124,7 @@ def main():
         "self": "Self-Play Agents"
     }
     
-    print(f"🃏 Hearts: RL Agent vs 3 {bot_type_names.get(bot_type, 'Random Bots')} Simulation")
+    print(f"🃏 Hearts: RL Agent vs 3 {bot_type_names.get(bot_type, 'Unknown Bots')} Simulation")
     print(f"Bot Type: {bot_type.upper()} (set via BOT_TYPE environment variable)")
     print("=" * 65)
     

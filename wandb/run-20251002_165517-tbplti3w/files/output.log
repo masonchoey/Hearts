@@ -1,0 +1,471 @@
+Starting PPO Self-Play Training...
+In self-play mode, the agent learns by playing against copies of itself.
+This should lead to more sophisticated strategies over time.
+Press Ctrl+C at any time to stop training early.
+----------------------------------------------------------------------
+2025-10-02 16:55:19,735	INFO worker.py:1927 -- Started a local Ray instance.
+2025-10-02 16:55:20,306	INFO tune.py:253 -- Initializing Ray automatically. For cluster usage or custom Ray initialization, call `ray.init(...)` before `Tuner(...)`.
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/spaces/box.py:235: UserWarning: [33mWARN: Box low's precision lowered by casting to float32, current low.dtype=float64[0m
+  gym.logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/spaces/box.py:305: UserWarning: [33mWARN: Box high's precision lowered by casting to float32, current high.dtype=float64[0m
+  gym.logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/utils/passive_env_checker.py:134: UserWarning: [33mWARN: The obs returned by the `reset()` method was expecting numpy array dtype to be float32, actual type: float64[0m
+  logger.warn(
+/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/gymnasium/utils/passive_env_checker.py:158: UserWarning: [33mWARN: The obs returned by the `reset()` method is not within the observation space.[0m
+  logger.warn(f"{pre} is not within the observation space.")
+2025-10-02 16:55:20,366	INFO wandb.py:321 -- Already logged into W&B.
+╭────────────────────────────────────────────────────────────╮
+│ Configuration for experiment     PPO_2025-10-02_16-55-18   │
+├────────────────────────────────────────────────────────────┤
+│ Search algorithm                 BasicVariantGenerator     │
+│ Scheduler                        FIFOScheduler             │
+│ Number of trials                 1                         │
+╰────────────────────────────────────────────────────────────╯
+
+View detailed results here: /Users/masonchoey/ray_results/PPO_2025-10-02_16-55-18
+To visualize your results with TensorBoard, run: `tensorboard --logdir /tmp/ray/session_2025-10-02_16-55-18_425357_44033/artifacts/2025-10-02_16-55-20/PPO_2025-10-02_16-55-18/driver_artifacts`
+
+Trial status: 1 PENDING
+Current time: 2025-10-02 16:55:20. Total running time: 0s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭─────────────────────────────────────────────────╮
+│ Trial name                             status   │
+├─────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   PENDING  │
+╰─────────────────────────────────────────────────╯
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,466 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: '24542e557f5d86b66aa66c0b01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,508 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: '343f7ccbc3b085a0bf6d299b01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,549 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: 'd0b08691f76f00fa57f7b2bf01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,591 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: 'e95db603b4d33773fd63adbe01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,633 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: 'ed626a1944ab6a7fdef605a101000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,717 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: '773fabb355c6ac65885f2abd01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(PPO pid=44087)[0m [2025-10-02 16:55:22,773 E 44087 566088] core_worker.cc:2740: Actor with class name: 'RolloutWorker' and ID: 'b10fe13eed53c8794580c8ab01000000' has constructor arguments in the object store and max_restarts > 0. If the arguments in the object store go out of scope or are lost, the actor restart will fail. See https://github.com/ray-project/ray/issues/53727 for more details.
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:25,400	INFO catalog.py:407 -- Wrapping <class 'attention_model.AttentionMaskModel'> as None
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:25,436	INFO policy.py:1234 -- Policy (worker=1) running on CPU.
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:25,436	INFO torch_policy_v2.py:105 -- Found 0 visible cuda devices.
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:26,365	INFO util.py:118 -- Using connectors:
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:26,365	INFO util.py:119 --     AgentConnectorPipeline
+[36m(RolloutWorker pid=44095)[0m         ObsPreprocessorConnector
+[36m(RolloutWorker pid=44095)[0m         StateBufferConnector
+[36m(RolloutWorker pid=44095)[0m         ViewRequirementAgentConnector
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:26,365	INFO util.py:120 --     ActionConnectorPipeline
+[36m(RolloutWorker pid=44095)[0m         ConvertToNumpyConnector
+[36m(RolloutWorker pid=44095)[0m         NormalizeActionsConnector
+[36m(RolloutWorker pid=44095)[0m         ImmutableActionsConnector
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,635	INFO env_runner_group.py:320 -- Inferred observation/action spaces from remote worker (local worker has no env): {'default_policy': (Dict('action_mask': Box(0, 1, (52,), int8), 'observations': Box(0.0, 1.0, (5088,), float32)), Discrete(52)), '__env__': (Dict('action_mask': Box(0, 1, (52,), int8), 'observations': Box(0.0, 1.0, (5088,), float32)), Discrete(52))}
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,643	INFO policy.py:1234 -- Policy (worker=local) running on CPU.
+
+Trial PPO_hearts_env_self_play_40e76_00000 started with configuration:
+╭────────────────────────────────────────────────────────────────────────────╮
+│ Trial PPO_hearts_env_self_play_40e76_00000 config                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│ _disable_action_flattening                                           False │
+│ _disable_execution_plan_api                                             -1 │
+│ _disable_initialize_loss_from_dummy_batch                            False │
+│ _disable_preprocessor_api                                            False │
+│ _dont_auto_sync_env_runner_states                                    False │
+│ _enable_rl_module_api                                                   -1 │
+│ _env_to_module_connector                                                   │
+│ _fake_gpus                                                           False │
+│ _is_atari                                                                  │
+│ _is_online                                                            True │
+│ _learner_class                                                             │
+│ _learner_connector                                                         │
+│ _module_to_env_connector                                                   │
+│ _prior_exploration_config                                                  │
+│ _rl_module_spec                                                            │
+│ _tf_policy_handles_more_than_one_loss                                False │
+│ _torch_grad_scaler_class                                                   │
+│ _torch_lr_scheduler_classes                                                │
+│ _train_batch_size_per_learner                                              │
+│ _use_msgpack_checkpoints                                             False │
+│ _validate_config                                                      True │
+│ action_mask_key                                                action_mask │
+│ action_space                                                               │
+│ actions_in_input_normalized                                          False │
+│ add_default_connectors_to_env_to_module_pipeline                      True │
+│ add_default_connectors_to_learner_pipeline                            True │
+│ add_default_connectors_to_module_to_env_pipeline                      True │
+│ always_attach_evaluation_results                                        -1 │
+│ auto_wrap_old_gym_envs                                                  -1 │
+│ batch_mode                                               truncate_episodes │
+│ broadcast_env_runner_states                                           True │
+│ broadcast_offline_eval_runner_states                                 False │
+│ callbacks                                             ...s.RLlibCallback'> │
+│ callbacks_on_algorithm_init                                                │
+│ callbacks_on_checkpoint_loaded                                             │
+│ callbacks_on_env_runners_recreated                                         │
+│ callbacks_on_environment_created                                           │
+│ callbacks_on_episode_created                                               │
+│ callbacks_on_episode_end                                                   │
+│ callbacks_on_episode_start                                                 │
+│ callbacks_on_episode_step                                                  │
+│ callbacks_on_evaluate_end                                                  │
+│ callbacks_on_evaluate_offline_end                                          │
+│ callbacks_on_evaluate_offline_start                                        │
+│ callbacks_on_evaluate_start                                                │
+│ callbacks_on_offline_eval_runners_recreated                                │
+│ callbacks_on_sample_end                                                    │
+│ callbacks_on_train_result                                                  │
+│ checkpoint_trainable_policies_only                                   False │
+│ clip_actions                                                         False │
+│ clip_param                                                             0.2 │
+│ clip_rewards                                                               │
+│ compress_observations                                                False │
+│ count_steps_by                                                   env_steps │
+│ create_env_on_driver                                                 False │
+│ create_local_env_runner                                               True │
+│ custom_async_evaluation_function                                        -1 │
+│ custom_eval_function                                                       │
+│ dataset_num_iters_per_eval_runner                                        1 │
+│ dataset_num_iters_per_learner                                              │
+│ delay_between_env_runner_restarts_s                                    60. │
+│ disable_env_checking                                                 False │
+│ eager_max_retraces                                                      20 │
+│ eager_tracing                                                         True │
+│ enable_async_evaluation                                                 -1 │
+│ enable_connectors                                                       -1 │
+│ enable_env_runner_and_connector_v2                                   False │
+│ enable_rl_module_and_learner                                         False │
+│ enable_tf1_exec_eagerly                                              False │
+│ entropy_coeff                                                         0.05 │
+│ entropy_coeff_schedule                                                     │
+│ env                                                   hearts_env_self_play │
+│ env_runner_cls                                                             │
+│ env_runner_health_probe_timeout_s                                      30. │
+│ env_runner_restore_timeout_s                                         1800. │
+│ env_task_fn                                                             -1 │
+│ episode_lookback_horizon                                                 1 │
+│ episodes_to_numpy                                                     True │
+│ evaluation_auto_duration_max_env_steps_per_sample                     2000 │
+│ evaluation_auto_duration_min_env_steps_per_sample                      100 │
+│ evaluation_config/explore                                            False │
+│ evaluation_duration                                                    300 │
+│ evaluation_duration_unit                                          episodes │
+│ evaluation_force_reset_envs_before_iteration                          True │
+│ evaluation_interval                                                     15 │
+│ evaluation_num_env_runners                                               0 │
+│ evaluation_parallel_to_training                                      False │
+│ evaluation_sample_timeout_s                                           120. │
+│ exploration_config/type                                 StochasticSampling │
+│ explore                                                               True │
+│ export_native_model_files                                            False │
+│ fake_sampler                                                         False │
+│ framework                                                            torch │
+│ gamma                                                                 0.99 │
+│ grad_clip                                                              0.5 │
+│ grad_clip_by                                                   global_norm │
+│ gym_env_vectorize_mode                                                SYNC │
+│ ignore_env_runner_failures                                           False │
+│ ignore_final_observation                                             False │
+│ ignore_offline_eval_runner_failures                                  False │
+│ in_evaluation                                                        False │
+│ input                                                              sampler │
+│ input_compress_columns                                  ['obs', 'new_obs'] │
+│ input_filesystem                                                           │
+│ input_read_batch_size                                                      │
+│ input_read_episodes                                                  False │
+│ input_read_method                                             read_parquet │
+│ input_read_sample_batches                                            False │
+│ input_spaces_jsonable                                                 True │
+│ keep_per_episode_custom_metrics                                      False │
+│ kl_coeff                                                               0.2 │
+│ kl_target                                                             0.01 │
+│ lambda                                                                0.95 │
+│ local_gpu_idx                                                            0 │
+│ local_tf_session_args/inter_op_parallelism_threads                       8 │
+│ local_tf_session_args/intra_op_parallelism_threads                       8 │
+│ log_gradients                                                         True │
+│ log_level                                                             INFO │
+│ log_sys_usage                                                         True │
+│ logger_config                                                              │
+│ logger_creator                                                             │
+│ lr                                                                  0.0002 │
+│ lr_schedule                                                                │
+│ materialize_data                                                     False │
+│ materialize_mapped_data                                               True │
+│ max_num_env_runner_restarts                                           1000 │
+│ max_num_offline_eval_runner_restarts                                  1000 │
+│ max_requests_in_flight_per_aggregator_actor                              3 │
+│ max_requests_in_flight_per_env_runner                                    1 │
+│ max_requests_in_flight_per_learner                                       3 │
+│ max_requests_in_flight_per_offline_eval_runner                           1 │
+│ merge_env_runner_states                                      training_only │
+│ metrics_episode_collection_timeout_s                                   60. │
+│ metrics_num_episodes_for_smoothing                                     100 │
+│ min_sample_timesteps_per_iteration                                       0 │
+│ min_time_s_per_iteration                                                   │
+│ min_train_timesteps_per_iteration                                        0 │
+│ minibatch_size                                                          32 │
+│ model/_disable_action_flattening                                     False │
+│ model/_disable_preprocessor_api                                      False │
+│ model/_time_major                                                    False │
+│ model/_use_default_native_models                                        -1 │
+│ model/always_check_shapes                                            False │
+│ model/attention_dim                                                     64 │
+│ model/attention_head_dim                                                32 │
+│ model/attention_init_gru_gate_bias                                     2.0 │
+│ model/attention_memory_inference                                        50 │
+│ model/attention_memory_training                                         50 │
+│ model/attention_num_heads                                                1 │
+│ model/attention_num_transformer_units                                    1 │
+│ model/attention_position_wise_mlp_dim                                   32 │
+│ model/attention_use_n_prev_actions                                       0 │
+│ model/attention_use_n_prev_rewards                                       0 │
+│ model/conv_activation                                                 relu │
+│ model/conv_bias_initializer                                                │
+│ model/conv_bias_initializer_config                                         │
+│ model/conv_filters                                                         │
+│ model/conv_kernel_initializer                                              │
+│ model/conv_kernel_initializer_config                                       │
+│ model/conv_transpose_bias_initializer                                      │
+│ model/conv_transpose_bias_initializer_config                               │
+│ model/conv_transpose_kernel_initializer                                    │
+│ model/conv_transpose_kernel_initializer_config                             │
+│ model/custom_action_dist                                                   │
+│ model/custom_model                                    ...d_attention_model │
+│ model/custom_preprocessor                                                  │
+│ model/dim                                                               84 │
+│ model/encoder_latent_dim                                                   │
+│ model/fcnet_activation                                                tanh │
+│ model/fcnet_bias_initializer                                               │
+│ model/fcnet_bias_initializer_config                                        │
+│ model/fcnet_hiddens                                             [256, 256] │
+│ model/fcnet_weights_initializer                                            │
+│ model/fcnet_weights_initializer_config                                     │
+│ model/framestack                                                      True │
+│ model/free_log_std                                                   False │
+│ model/grayscale                                                      False │
+│ model/log_std_clip_param                                              20.0 │
+│ model/lstm_bias_initializer                                                │
+│ model/lstm_bias_initializer_config                                         │
+│ model/lstm_cell_size                                                   256 │
+│ model/lstm_use_prev_action                                           False │
+│ model/lstm_use_prev_action_reward                                       -1 │
+│ model/lstm_use_prev_reward                                           False │
+│ model/lstm_weights_initializer                                             │
+│ model/lstm_weights_initializer_config                                      │
+│ model/max_seq_len                                                       20 │
+│ model/no_final_linear                                                False │
+│ model/post_fcnet_activation                                           relu │
+│ model/post_fcnet_bias_initializer                                          │
+│ model/post_fcnet_bias_initializer_config                                   │
+│ model/post_fcnet_hiddens                                                [] │
+│ model/post_fcnet_weights_initializer                                       │
+│ model/post_fcnet_weights_initializer_config                                │
+│ model/use_attention                                                  False │
+│ model/use_lstm                                                       False │
+│ model/vf_share_layers                                                False │
+│ model/zero_mean                                                       True │
+│ normalize_actions                                                     True │
+│ num_aggregator_actors_per_learner                                        0 │
+│ num_consecutive_env_runner_failures_tolerance                          100 │
+│ num_cpus_for_main_process                                                1 │
+│ num_cpus_per_env_runner                                                  1 │
+│ num_cpus_per_learner                                                  auto │
+│ num_cpus_per_offline_eval_runner                                         1 │
+│ num_env_runners                                                          7 │
+│ num_envs_per_env_runner                                                  1 │
+│ num_epochs                                                              20 │
+│ num_gpus                                                                 0 │
+│ num_gpus_per_env_runner                                                  0 │
+│ num_gpus_per_learner                                                     0 │
+│ num_gpus_per_offline_eval_runner                                         0 │
+│ num_learners                                                             0 │
+│ num_offline_eval_runners                                                 0 │
+│ observation_filter                                                NoFilter │
+│ observation_fn                                                             │
+│ observation_space                                                          │
+│ offline_data_class                                                         │
+│ offline_eval_batch_size_per_runner                                     256 │
+│ offline_eval_rl_module_inference_only                                False │
+│ offline_eval_runner_class                                                  │
+│ offline_eval_runner_health_probe_timeout_s                             30. │
+│ offline_eval_runner_restore_timeout_s                                1800. │
+│ offline_evaluation_duration                                              1 │
+│ offline_evaluation_interval                                                │
+│ offline_evaluation_parallel_to_training                              False │
+│ offline_evaluation_timeout_s                                          120. │
+│ offline_evaluation_type                                                    │
+│ offline_loss_for_module_fn                                                 │
+│ offline_sampling                                                     False │
+│ ope_split_batch_by_episode                                            True │
+│ output                                                                     │
+│ output_compress_columns                                 ['obs', 'new_obs'] │
+│ output_filesystem                                                          │
+│ output_max_file_size                                              67108864 │
+│ output_max_rows_per_file                                                   │
+│ output_write_episodes                                                 True │
+│ output_write_method                                          write_parquet │
+│ output_write_remaining_data                                          False │
+│ placement_strategy                                                    PACK │
+│ policies/default_policy                               ...None, None, None) │
+│ policies_to_train                                                          │
+│ policy_map_cache                                                        -1 │
+│ policy_map_capacity                                                    100 │
+│ policy_mapping_fn                                     ...N at 0x152006160> │
+│ policy_states_are_swappable                                          False │
+│ postprocess_inputs                                                   False │
+│ prelearner_buffer_class                                                    │
+│ prelearner_class                                                           │
+│ prelearner_module_synch_period                                          10 │
+│ preprocessor_pref                                                 deepmind │
+│ remote_env_batch_wait_ms                                                 0 │
+│ remote_worker_envs                                                   False │
+│ render_env                                                           False │
+│ replay_sequence_length                                                     │
+│ restart_failed_env_runners                                            True │
+│ restart_failed_offline_eval_runners                                   True │
+│ restart_failed_sub_environments                                      False │
+│ rollout_fragment_length                                               auto │
+│ sample_collector                                      ...leListCollector'> │
+│ sample_timeout_s                                                       60. │
+│ sampler_perf_stats_ema_coef                                                │
+│ seed                                                                       │
+│ sgd_minibatch_size                                                      -1 │
+│ shuffle_batch_per_epoch                                               True │
+│ shuffle_buffer_size                                                      0 │
+│ simple_optimizer                                                        -1 │
+│ sync_filters_on_rollout_workers_timeout_s                              10. │
+│ synchronize_filters                                                     -1 │
+│ tf_session_args/allow_soft_placement                                  True │
+│ tf_session_args/device_count/CPU                                         1 │
+│ tf_session_args/gpu_options/allow_growth                              True │
+│ tf_session_args/inter_op_parallelism_threads                             2 │
+│ tf_session_args/intra_op_parallelism_threads                             2 │
+│ tf_session_args/log_device_placement                                 False │
+│ torch_compile_learner                                                False │
+│ torch_compile_learner_dynamo_backend                             aot_eager │
+│ torch_compile_learner_dynamo_mode                                          │
+│ torch_compile_learner_what_to_compile                 ...ile.FORWARD_TRAIN │
+│ torch_compile_worker                                                 False │
+│ torch_compile_worker_dynamo_backend                              aot_eager │
+│ torch_compile_worker_dynamo_mode                                           │
+│ torch_skip_nan_gradients                                             False │
+│ train_batch_size                                                     12000 │
+│ update_worker_filter_stats                                            True │
+│ use_critic                                                            True │
+│ use_gae                                                               True │
+│ use_kl_loss                                                           True │
+│ use_worker_filter_stats                                               True │
+│ validate_env_runners_after_construction                               True │
+│ validate_offline_eval_runners_after_construction                      True │
+│ vf_clip_param                                                          10. │
+│ vf_loss_coeff                                                           2. │
+│ vf_share_layers                                                         -1 │
+│ worker_cls                                                              -1 │
+╰────────────────────────────────────────────────────────────────────────────╯
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,957	INFO rollout_worker.py:1742 -- Built policy map: <PolicyMap lru-caching-capacity=100 policy-IDs=['default_policy']>
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,957	INFO rollout_worker.py:1743 -- Built preprocessor map: {'default_policy': None}
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,957	INFO rollout_worker.py:542 -- Built filter map: defaultdict(<class 'ray.rllib.utils.filter.NoFilter'>, {})
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,962	INFO policy.py:1234 -- Policy (worker=local) running on CPU.
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,965	INFO rollout_worker.py:1742 -- Built policy map: <PolicyMap lru-caching-capacity=100 policy-IDs=['default_policy']>
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,965	INFO rollout_worker.py:1743 -- Built preprocessor map: {'default_policy': None}
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,966	INFO rollout_worker.py:542 -- Built filter map: defaultdict(<class 'ray.rllib.utils.filter.NoFilter'>, {})
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,968	INFO env_runner_group.py:320 -- Inferred observation/action spaces from remote worker (local worker has no env): {'default_policy': (Dict('action_mask': Box(0, 1, (52,), int8), 'observations': Box(0.0, 1.0, (5088,), float32)), Discrete(52)), '__env__': (Dict('action_mask': Box(0, 1, (52,), int8), 'observations': Box(0.0, 1.0, (5088,), float32)), Discrete(52))}
+[36m(PPO pid=44087)[0m Install gputil for GPU system monitoring.
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:27,017	INFO rollout_worker.py:671 -- Generating sample batch of size 1715
+[36m(RolloutWorker pid=44095)[0m /Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/numpy/_core/_methods.py:134: RuntimeWarning: overflow encountered in reduce
+[36m(RolloutWorker pid=44095)[0m   ret = umr_sum(arr, axis, dtype, out, keepdims, where=where)
+[36m(RolloutWorker pid=44095)[0m 2025-10-02 16:55:30,584	INFO rollout_worker.py:713 -- Completed sample batch:
+[36m(RolloutWorker pid=44095)[0m
+[36m(RolloutWorker pid=44095)[0m { 'count': 1715,
+[36m(RolloutWorker pid=44095)[0m   'policy_batches': { 'default_policy': { 'action_dist_inputs': np.ndarray((1715, 52), dtype=float32, min=-3.4028234663852886e+38, max=0.518, mean=-inf),
+[36m(RolloutWorker pid=44095)[0m                                           'action_logp': np.ndarray((1715,), dtype=float32, min=-3.41, max=0.0, mean=-1.21),
+[36m(RolloutWorker pid=44095)[0m                                           'actions': np.ndarray((1715,), dtype=int32, min=0.0, max=51.0, mean=25.335),
+[36m(RolloutWorker pid=44095)[0m                                           'advantages': np.ndarray((1715,), dtype=float32, min=-0.036, max=2.421, mean=0.499),
+[36m(RolloutWorker pid=44095)[0m                                           'agent_index': np.ndarray((1715,), dtype=int64, min=0.0, max=0.0, mean=0.0),
+[36m(RolloutWorker pid=44095)[0m                                           'eps_id': np.ndarray((1715,), dtype=int64, min=2500128777101094.0, max=9.535233508584229e+17, mean=4.4834542236843955e+17),
+[36m(RolloutWorker pid=44095)[0m                                           'infos': np.ndarray((1715,), dtype=object, head={}),
+[36m(RolloutWorker pid=44095)[0m                                           'new_obs': np.ndarray((1715, 5140), dtype=float32, min=0.0, max=1.0, mean=0.019),
+[36m(RolloutWorker pid=44095)[0m                                           'obs': np.ndarray((1715, 5140), dtype=float32, min=0.0, max=1.0, mean=0.019),
+[36m(RolloutWorker pid=44095)[0m                                           'rewards': np.ndarray((1715,), dtype=float32, min=0.0, max=2.6, mean=0.035),
+[36m(RolloutWorker pid=44095)[0m                                           't': np.ndarray((1715,), dtype=int64, min=0.0, max=63.0, mean=30.322),
+[36m(RolloutWorker pid=44095)[0m                                           'terminateds': np.ndarray((1715,), dtype=bool, min=0.0, max=1.0, mean=0.016),
+[36m(RolloutWorker pid=44095)[0m                                           'truncateds': np.ndarray((1715,), dtype=bool, min=0.0, max=0.0, mean=0.0),
+[36m(RolloutWorker pid=44095)[0m                                           'unroll_id': np.ndarray((1715,), dtype=int64, min=1.0, max=55.0, mean=28.047),
+[36m(RolloutWorker pid=44095)[0m                                           'value_targets': np.ndarray((1715,), dtype=float32, min=0.159, max=2.6, mean=0.689),
+[36m(RolloutWorker pid=44095)[0m                                           'values_bootstrapped': np.ndarray((1715,), dtype=float32, min=0.0, max=0.222, mean=0.188),
+[36m(RolloutWorker pid=44095)[0m                                           'vf_preds': np.ndarray((1715,), dtype=float32, min=0.165, max=0.222, mean=0.191)}},
+[36m(RolloutWorker pid=44095)[0m   'type': 'MultiAgentBatch'}
+[36m(RolloutWorker pid=44095)[0m
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,960	INFO catalog.py:407 -- Wrapping <class 'attention_model.AttentionMaskModel'> as None[32m [repeated 8x across cluster] (Ray deduplicates logs by default. Set RAY_DEDUP_LOGS=0 to disable log deduplication, or see https://docs.ray.io/en/master/ray-observability/user-guides/configure-logging.html#log-deduplication for more options.)[0m
+[36m(RolloutWorker pid=44100)[0m 2025-10-02 16:55:26,276	INFO policy.py:1234 -- Policy (worker=7) running on CPU.[32m [repeated 6x across cluster][0m
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,962	INFO torch_policy_v2.py:105 -- Found 0 visible cuda devices.[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:30,882	WARNING deprecation.py:50 -- DeprecationWarning: `ray.rllib.execution.train_ops.multi_gpu_train_one_step` has been deprecated. This will raise an error in the future!
+[36m(_WandbLoggingActor pid=44126)[0m wandb: WARNING `start_method` is deprecated and will be removed in a future version of wandb. This setting is currently non-functional and safely ignored.
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,965	INFO util.py:118 -- Using connectors:[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,965	INFO util.py:119 --     AgentConnectorPipeline[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         ObsPreprocessorConnector[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         StateBufferConnector[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         ViewRequirementAgentConnector[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m 2025-10-02 16:55:26,965	INFO util.py:120 --     ActionConnectorPipeline[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         ConvertToNumpyConnector[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         NormalizeActionsConnector[32m [repeated 8x across cluster][0m
+[36m(PPO pid=44087)[0m         ImmutableActionsConnector[32m [repeated 8x across cluster][0m
+[36m(_WandbLoggingActor pid=44126)[0m wandb: Currently logged in as: masonchoey (masonchoey-ucla) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+[36m(_WandbLoggingActor pid=44126)[0m wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instead.
+[36m(_WandbLoggingActor pid=44126)[0m wandb: Tracking run with wandb version 0.22.1
+[36m(_WandbLoggingActor pid=44126)[0m wandb: Run data is saved locally in /private/tmp/ray/session_2025-10-02_16-55-18_425357_44033/artifacts/2025-10-02_16-55-20/PPO_2025-10-02_16-55-18/driver_artifacts/PPO_hearts_env_self_play_40e76_00000_0_2025-10-02_16-55-20/wandb/run-20251002_165532-40e76_00000
+[36m(_WandbLoggingActor pid=44126)[0m wandb: Run `wandb offline` to turn off syncing.
+[36m(_WandbLoggingActor pid=44126)[0m wandb: Syncing run hearts_training_run_2025-10-02-16-55-18
+[36m(_WandbLoggingActor pid=44126)[0m wandb: ⭐️ View project at https://wandb.ai/masonchoey-ucla/hearts-ppo-selfplay_runs
+[36m(_WandbLoggingActor pid=44126)[0m wandb: 🚀 View run at https://wandb.ai/masonchoey-ucla/hearts-ppo-selfplay_runs/runs/40e76_00000
+
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:55:50. Total running time: 30s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭─────────────────────────────────────────────────╮
+│ Trial name                             status   │
+├─────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING  │
+╰─────────────────────────────────────────────────╯
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:56:20. Total running time: 1min 0s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Trial name                             status       iter     total time (s)      ts     num_healthy_workers     ...anding_async_reqs     ...e_worker_restarts     ...ent_steps_sampled │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING         1             36.871   12000                       7                        0                        0                    12000 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:56:50. Total running time: 1min 30s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Trial name                             status       iter     total time (s)      ts     num_healthy_workers     ...anding_async_reqs     ...e_worker_restarts     ...ent_steps_sampled │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING         2            72.2479   24000                       7                        0                        0                    24000 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:57:20. Total running time: 2min 0s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Trial name                             status       iter     total time (s)      ts     num_healthy_workers     ...anding_async_reqs     ...e_worker_restarts     ...ent_steps_sampled │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING         3            110.916   36000                       7                        0                        0                    36000 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:57:50. Total running time: 2min 30s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Trial name                             status       iter     total time (s)      ts     num_healthy_workers     ...anding_async_reqs     ...e_worker_restarts     ...ent_steps_sampled │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING         3            110.916   36000                       7                        0                        0                    36000 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+2025-10-02 16:58:18,395	WARNING tune.py:219 -- Stop signal received (e.g. via SIGINT/Ctrl+C), ending Ray Tune run. This will try to checkpoint the experiment state one last time. Press CTRL+C (or send SIGINT/SIGKILL/SIGTERM) to skip.
+2025-10-02 16:58:18,400	INFO tune.py:1009 -- Wrote the latest version of all result files and experiment state to '/Users/masonchoey/ray_results/PPO_2025-10-02_16-55-18' in 0.0038s.
+Trial status: 1 RUNNING
+Current time: 2025-10-02 16:58:18. Total running time: 2min 58s
+Logical resource usage: 8.0/8 CPUs, 0/0 GPUs
+╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Trial name                             status       iter     total time (s)      ts     num_healthy_workers     ...anding_async_reqs     ...e_worker_restarts     ...ent_steps_sampled │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ PPO_hearts_env_self_play_40e76_00000   RUNNING         4            151.454   48000                       7                        0                        0                    48000 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+======================================================================
+Self-Play Training interrupted by user (Ctrl+C)
+Checkpoints have been saved and can be found in the Ray results directory.
+You can resume training later using:
+  --resume <path_to_specific_checkpoint>
+  --resume-from-latest <path_to_results_directory>

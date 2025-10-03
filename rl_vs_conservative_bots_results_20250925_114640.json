@@ -1,0 +1,194 @@
+{
+  "simulation_info": {
+    "timestamp": "20250925_114640",
+    "total_games": 3
+  },
+  "analysis": {
+    "total_games": 3,
+    "expected_points_per_player": 6.5,
+    "rl_agent": {
+      "avg_score": 6.666666666666667,
+      "std_score": 5.2493385826745405,
+      "best_score": 2.0,
+      "worst_score": 14.0,
+      "avg_rank": 2.6666666666666665,
+      "wins": 0,
+      "win_rate": 0.0,
+      "invalid_moves": 0,
+      "total_moves": 45,
+      "invalid_move_rate": 0.0,
+      "rank_distribution": {
+        "rank_1": 0,
+        "rank_2": 2,
+        "rank_3": 0,
+        "rank_4": 1
+      },
+      "cumulative_percentage": 102.56410256410255,
+      "total_points_earned": 20.0,
+      "total_expected_points": 19.5,
+      "percentage_scores": {
+        "avg_percentage": 102.56410256410255,
+        "std_percentage": 80.75905511806985,
+        "best_percentage": 30.76923076923077,
+        "worst_percentage": 215.3846153846154,
+        "all_percentages": [
+          215.3846153846154,
+          61.53846153846154,
+          30.76923076923077
+        ]
+      }
+    },
+    "bot_performance": {
+      "conservative": {
+        "wins": 3,
+        "win_rate": 1.0,
+        "avg_score": 6.444444444444445,
+        "cumulative_percentage": 297.43589743589746,
+        "total_points_earned": 58.0,
+        "percentage_scores": {
+          "avg_percentage": 99.14529914529915,
+          "std_percentage": 99.99634736553617,
+          "best_percentage": 0.0,
+          "worst_percentage": 276.9230769230769
+        }
+      }
+    }
+  },
+  "individual_games": [
+    {
+      "timestamp": "2025-09-25T11:46:40.397171",
+      "player_scores": [
+        14.0,
+        5.0,
+        5.0,
+        2.0
+      ],
+      "player_percentages": [
+        215.3846153846154,
+        76.92307692307693,
+        76.92307692307693,
+        30.76923076923077
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 3,
+      "winners": [
+        3
+      ],
+      "rl_agent_score": 14.0,
+      "rl_agent_percentage": 215.3846153846154,
+      "rl_agent_rank": 4,
+      "bot_scores": [
+        5.0,
+        5.0,
+        2.0
+      ],
+      "bot_percentages": [
+        76.92307692307693,
+        76.92307692307693,
+        30.76923076923077
+      ],
+      "bot_strategies": [
+        "conservative",
+        "conservative",
+        "conservative"
+      ],
+      "total_actions": 16,
+      "game_length": 16,
+      "rl_decisions": 16,
+      "debug_info": {
+        "total_rl_moves": 16,
+        "rl_decision_count": 16
+      }
+    },
+    {
+      "timestamp": "2025-09-25T11:46:40.413075",
+      "player_scores": [
+        4.0,
+        18.0,
+        0.0,
+        4.0
+      ],
+      "player_percentages": [
+        61.53846153846154,
+        276.9230769230769,
+        0.0,
+        61.53846153846154
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 2,
+      "winners": [
+        2
+      ],
+      "rl_agent_score": 4.0,
+      "rl_agent_percentage": 61.53846153846154,
+      "rl_agent_rank": 2,
+      "bot_scores": [
+        18.0,
+        0.0,
+        4.0
+      ],
+      "bot_percentages": [
+        276.9230769230769,
+        0.0,
+        61.53846153846154
+      ],
+      "bot_strategies": [
+        "conservative",
+        "conservative",
+        "conservative"
+      ],
+      "total_actions": 13,
+      "game_length": 13,
+      "rl_decisions": 13,
+      "debug_info": {
+        "total_rl_moves": 29,
+        "rl_decision_count": 13
+      }
+    },
+    {
+      "timestamp": "2025-09-25T11:46:40.431765",
+      "player_scores": [
+        2.0,
+        18.0,
+        6.0,
+        0.0
+      ],
+      "player_percentages": [
+        30.76923076923077,
+        276.9230769230769,
+        92.3076923076923,
+        0.0
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 3,
+      "winners": [
+        3
+      ],
+      "rl_agent_score": 2.0,
+      "rl_agent_percentage": 30.76923076923077,
+      "rl_agent_rank": 2,
+      "bot_scores": [
+        18.0,
+        6.0,
+        0.0
+      ],
+      "bot_percentages": [
+        276.9230769230769,
+        92.3076923076923,
+        0.0
+      ],
+      "bot_strategies": [
+        "conservative",
+        "conservative",
+        "conservative"
+      ],
+      "total_actions": 16,
+      "game_length": 16,
+      "rl_decisions": 16,
+      "debug_info": {
+        "total_rl_moves": 45,
+        "rl_decision_count": 16
+      }
+    }
+  ]
+}
