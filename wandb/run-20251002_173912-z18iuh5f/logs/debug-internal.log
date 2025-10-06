@@ -32,3 +32,11 @@
 {"time":"2025-10-03T11:47:04.781215-07:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/masonchoey-ucla/hearts-ppo-selfplay_runs/z18iuh5f/file_stream\": dial tcp: lookup api.wandb.ai: no such host"}
 {"time":"2025-10-03T11:47:35.34421-07:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/masonchoey-ucla/hearts-ppo-selfplay_runs/z18iuh5f/file_stream\": read tcp 172.23.69.4:57525->35.186.228.49:443: read: connection reset by peer"}
 {"time":"2025-10-03T13:34:20.466777-07:00","level":"INFO","msg":"api: retrying error","error":"Post \"https://api.wandb.ai/files/masonchoey-ucla/hearts-ppo-selfplay_runs/z18iuh5f/file_stream\": read tcp 172.23.69.4:57527->35.186.228.49:443: read: can't assign requested address"}
+{"time":"2025-10-03T14:33:32.127037-07:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"updating run metadata","runtime_seconds":0.000190667}],"total_operations":1}}
+{"time":"2025-10-03T14:33:32.331474-07:00","level":"INFO","msg":"stream: closing","id":"z18iuh5f"}
+{"time":"2025-10-03T14:33:32.331682-07:00","level":"ERROR","msg":"sender: sendSummary called after exit"}
+{"time":"2025-10-03T14:33:32.336817-07:00","level":"WARN","msg":"sender: received Exit record more than once, ignoring"}
+{"time":"2025-10-03T14:33:32.601976-07:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-10-03T14:33:32.743907-07:00","level":"INFO","msg":"handler: closed","stream_id":"z18iuh5f"}
+{"time":"2025-10-03T14:33:32.744316-07:00","level":"INFO","msg":"sender: closed","stream_id":"z18iuh5f"}
+{"time":"2025-10-03T14:33:32.744326-07:00","level":"INFO","msg":"stream: closed","id":"z18iuh5f"}

@@ -1,0 +1,47 @@
+Failure # 1 (occurred at 2025-09-26_15-21-03)
+The actor died because of an error raised in its creation task, [36mray::PPO.__init__()[39m (pid=98931, ip=127.0.0.1, actor_id=f1dab0f037a1ba0c6dfcaaf601000000, repr=PPO)
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/rllib/algorithms/algorithm.py", line 536, in __init__
+    super().__init__(
+    ~~~~~~~~~~~~~~~~^
+        config=config,
+        ^^^^^^^^^^^^^^
+        logger_creator=logger_creator,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/tune/trainable/trainable.py", line 158, in __init__
+    self.setup(copy.deepcopy(self.config))
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/rllib/algorithms/algorithm.py", line 644, in setup
+    self.env_runner_group = EnvRunnerGroup(
+                            ~~~~~~~~~~~~~~^
+        env_creator=self.env_creator,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<11 lines>...
+        tune_trial_id=self.trial_id,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/rllib/env/env_runner_group.py", line 198, in __init__
+    self._setup(
+    ~~~~~~~~~~~^
+        validate_env=validate_env,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        local_env_runner=local_env_runner,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/rllib/env/env_runner_group.py", line 286, in _setup
+    spaces = self.get_spaces()
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/rllib/env/env_runner_group.py", line 314, in get_spaces
+    spaces = self.foreach_env_runner(
+             ~~~~~~~~~~~~~~~~~~~~~~~~
+    ...<2 lines>...
+        local_env_runner=not remote_worker_ids,
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    )[0]
+    ~^^^
+IndexError: list index out of range

@@ -215,7 +215,7 @@ def parse_arguments():
                        help='Path to checkpoint directory to resume training from')
     parser.add_argument('--resume-from-latest', type=str, default=None,
                        help='Path to results directory - will automatically find latest checkpoint')
-    parser.add_argument('--iterations', type=int, default=250,
+    parser.add_argument('--iterations', type=int, default=200,
                        help='Number of training iterations to run (default: 250)')
     parser.add_argument('--no-wandb', action='store_true',
                        help='Disable W&B logging')
@@ -329,7 +329,7 @@ def main():
             "num_epochs": 20,
             "minibatch_size": 64, #32 for cpu
             "train_batch_size": 16000, #12000 for cpu
-            "learning_rate": 3e-4,
+            "learning_rate": 5e-4,
             "entropy_coeff": 0.2,
             "vf_loss_coeff": 2.0,
             "clip_param": 0.3,
@@ -339,7 +339,7 @@ def main():
             
             # Environment settings
             "env": "hearts_env_self_play",
-            "num_env_runners": 7,
+            "num_env_runners": 2,  # Reduced for thermal management
             "num_envs_per_env_runner": 1,
             
             # Model architecture
@@ -376,6 +376,7 @@ def main():
     # PPO Configuration
     ppo_config = (
         PPOConfig()
+        .storage_path("./ray_results/PPO_hearts_env_self_play")
         .api_stack(
             enable_rl_module_and_learner=False,
             enable_env_runner_and_connector_v2=False,
@@ -392,19 +393,19 @@ def main():
                 "fcnet_hiddens": [256, 256],
             },
             num_epochs=20,
-            minibatch_size=32,
-            train_batch_size=12000,
-            lr=2e-4,
-            entropy_coeff=0.05,
+            minibatch_size=64,
+            train_batch_size=16000,
+            lr=5e-4,
+            entropy_coeff=0.2,
             vf_loss_coeff=2.0,
-            clip_param=0.2,
+            clip_param=0.3,
             grad_clip=0.5,
             use_gae=True,
-            lambda_=0.95,
-            gamma=0.99,
+            lambda_=0.90,
+            gamma=0.95,
         )
         .env_runners(
-            num_env_runners=7,
+            num_env_runners=2,  # Reduced from 7 to lower CPU temperature
             num_envs_per_env_runner=1,
         )
         .resources(

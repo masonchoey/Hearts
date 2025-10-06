@@ -1,0 +1,52 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.5",
+  "startedAt": "2025-10-02T23:43:07.569344Z",
+  "args": [
+    "--node-ip-address=127.0.0.1",
+    "--node-manager-port=63573",
+    "--object-store-name=/tmp/ray/session_2025-10-02_16-42-53_030152_43114/sockets/plasma_store",
+    "--raylet-name=/tmp/ray/session_2025-10-02_16-42-53_030152_43114/sockets/raylet",
+    "--redis-address=None",
+    "--metrics-agent-port=65218",
+    "--logging-rotate-bytes=536870912",
+    "--logging-rotate-backup-count=5",
+    "--runtime-env-agent-port=64968",
+    "--gcs-address=127.0.0.1:64578",
+    "--session-name=session_2025-10-02_16-42-53_030152_43114",
+    "--temp-dir=/tmp/ray",
+    "--webui=",
+    "--cluster-id=a29ee8b136e91a3cae44a013e1c5791ce7391645f64efd59c1df2833",
+    "--startup-token=16",
+    "--worker-launch-time-ms=1759448582512",
+    "--node-id=cc9da941ba26e8310f47406a11a020cf09e8706eae53ab10bba4d141",
+    "--runtime-env-hash=0",
+    "--enable-resource-isolation=false"
+  ],
+  "program": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/lib/python3.13/site-packages/ray/_private/workers/default_worker.py",
+  "email": "mason@choey.com",
+  "root": "/private/tmp/ray/session_2025-10-02_16-42-53_030152_43114/artifacts/2025-10-02_16-42-55/PPO_2025-10-02_16-42-52/driver_artifacts/PPO_hearts_env_self_play_8537e_00000_0_2025-10-02_16-42-55",
+  "host": "Masons-MacBook-Air.local",
+  "executable": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/bin/python3",
+  "cpu_count": 8,
+  "cpu_count_logical": 8,
+  "disk": {
+    "/": {
+      "total": "494384795648",
+      "used": "376150937600"
+    }
+  },
+  "memory": {
+    "total": "17179869184"
+  },
+  "apple": {
+    "name": "Apple M3",
+    "ecpuCores": 4,
+    "pcpuCores": 4,
+    "gpuCores": 10,
+    "memoryGb": 16,
+    "swapTotalBytes": "3221225472",
+    "ramTotalBytes": "17179869184"
+  },
+  "writerId": "erqm79rnbppescnenavrz60ymevvfeah"
+}
