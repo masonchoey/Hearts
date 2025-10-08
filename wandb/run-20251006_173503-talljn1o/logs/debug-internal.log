@@ -1,0 +1,14 @@
+{"time":"2025-10-06T17:35:04.145326-07:00","level":"INFO","msg":"stream: starting","core version":"0.22.1"}
+{"time":"2025-10-06T17:35:04.341505-07:00","level":"INFO","msg":"stream: created new stream","id":"talljn1o"}
+{"time":"2025-10-06T17:35:04.341543-07:00","level":"INFO","msg":"handler: started","stream_id":"talljn1o"}
+{"time":"2025-10-06T17:35:04.341666-07:00","level":"INFO","msg":"stream: started","id":"talljn1o"}
+{"time":"2025-10-06T17:35:04.34168-07:00","level":"INFO","msg":"writer: started","stream_id":"talljn1o"}
+{"time":"2025-10-06T17:35:04.342098-07:00","level":"INFO","msg":"sender: started","stream_id":"talljn1o"}
+{"time":"2025-10-06T17:36:37.731627-07:00","level":"INFO","msg":"handler: operation stats","stats":{"operations":[{"desc":"updating run metadata","runtime_seconds":0.000689084}],"total_operations":1}}
+{"time":"2025-10-06T17:36:37.836152-07:00","level":"INFO","msg":"stream: closing","id":"talljn1o"}
+{"time":"2025-10-06T17:36:37.836361-07:00","level":"ERROR","msg":"sender: sendSummary called after exit"}
+{"time":"2025-10-06T17:36:37.84327-07:00","level":"WARN","msg":"sender: received Exit record more than once, ignoring"}
+{"time":"2025-10-06T17:36:38.214874-07:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-10-06T17:36:38.485404-07:00","level":"INFO","msg":"handler: closed","stream_id":"talljn1o"}
+{"time":"2025-10-06T17:36:38.485574-07:00","level":"INFO","msg":"sender: closed","stream_id":"talljn1o"}
+{"time":"2025-10-06T17:36:38.485584-07:00","level":"INFO","msg":"stream: closed","id":"talljn1o"}

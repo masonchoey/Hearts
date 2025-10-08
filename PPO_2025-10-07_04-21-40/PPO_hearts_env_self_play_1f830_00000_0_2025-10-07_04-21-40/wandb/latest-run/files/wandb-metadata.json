@@ -1,0 +1,55 @@
+{
+  "os":  "Linux-6.6.97+-x86_64-with-glibc2.35",
+  "python":  "CPython 3.12.11",
+  "startedAt":  "2025-10-07T04:22:34.624688Z",
+  "args":  [
+    "--node-ip-address=172.28.0.12",
+    "--node-manager-port=36937",
+    "--object-store-name=/tmp/ray/session_2025-10-07_04-21-15_193919_2147/sockets/plasma_store",
+    "--raylet-name=/tmp/ray/session_2025-10-07_04-21-15_193919_2147/sockets/raylet",
+    "--redis-address=None",
+    "--metrics-agent-port=65038",
+    "--logging-rotate-bytes=536870912",
+    "--logging-rotate-backup-count=5",
+    "--runtime-env-agent-port=61792",
+    "--gcs-address=172.28.0.12:62941",
+    "--session-name=session_2025-10-07_04-21-15_193919_2147",
+    "--temp-dir=/tmp/ray",
+    "--webui=",
+    "--cluster-id=16aaf6da5633efcf18ec262add39f698689713d2605265d07903d47e",
+    "--startup-token=5",
+    "--worker-launch-time-ms=1759810933452",
+    "--node-id=25286417349f0d2db13e4cde49aae673f047fc58afcc80308912d8c9",
+    "--runtime-env-hash=-2084027547",
+    "--enable-resource-isolation=false"
+  ],
+  "program":  "/usr/local/lib/python3.12/dist-packages/ray/_private/workers/default_worker.py",
+  "email":  "mason@choey.com",
+  "root":  "/tmp/ray/session_2025-10-07_04-21-15_193919_2147/artifacts/2025-10-07_04-21-40/PPO_2025-10-07_04-21-40/driver_artifacts/PPO_hearts_env_self_play_1f830_00000_0_2025-10-07_04-21-40",
+  "host":  "0b954db18ccc",
+  "executable":  "/usr/bin/python3",
+  "cpu_count":  1,
+  "cpu_count_logical":  2,
+  "gpu":  "Tesla T4",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "253055008768",
+      "used":  "43442864128"
+    }
+  },
+  "memory":  {
+    "total":  "13605658624"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "Tesla T4",
+      "memoryTotal":  "16106127360",
+      "cudaCores":  2560,
+      "architecture":  "Turing",
+      "uuid":  "GPU-ccf80297-0ea9-cb66-1a84-f958a35339c9"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "writerId":  "3x9oapbpogajbmx1f8m7vd28wob5tdm4"
+}

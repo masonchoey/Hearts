@@ -6,28 +6,41 @@ This script trains a PPO agent to play Hearts using self-play, with the ability
 to resume training from previously saved checkpoints, including completed trials.
 
 Key Features:
+- Centralized configuration: All hyperparameters and settings declared at the top
 - Checkpoint rotation: Periodically trains against older checkpoint policies to 
   prevent overfitting to the most recent strategy
 - Configurable opponent probability: Control how often older checkpoints are used
 - Automatic checkpoint discovery: Finds recent checkpoints up to N iterations back
 - W&B integration: Logs checkpoint usage and training metrics
 
+Configuration:
+  All hyperparameters and training settings are declared as constants at the top 
+  of this file (after imports). To modify any aspect of training, simply edit the 
+  constants in the configuration sections:
+  
+  - Training Hyperparameters (learning rate, epochs, batch sizes, etc.)
+  - Environment Settings (number of runners, environments per runner)
+  - Model Architecture (embedding dimensions, attention heads, etc.)
+  - Evaluation Settings (frequency, duration)
+  - Checkpoint Settings (frequency, number to keep)
+  - Resource Settings (GPU/CPU allocation)
+  - Training Configuration (resume settings, iterations, W&B)
+  - Checkpoint Rotation Settings (opponent probability, lookback)
+
 Usage:
-  # Start new training
-  python main_self_play.py --iterations 100
+  1. Configure all settings by editing the constants at the top of this file
+  2. Run the script:
+     python main_self_play.py
   
-  # Resume with checkpoint rotation (default: 25% chance, look back 3 iterations)
-  python main_self_play.py --resume-from-latest ~/ray_results --iterations 200
-  
-  # Adjust rotation parameters
-  python main_self_play.py --resume-from-latest ~/ray_results \\
-      --opponent-prob 0.4 --max-lookback 5 --iterations 200
+  For resuming training, set these constants:
+  - RESUME_CHECKPOINT: Path to specific checkpoint directory
+  - RESUME_FROM_LATEST_DIR: Path to results directory to auto-find latest checkpoint
+  - TOTAL_ITERATIONS: Extend training to this many iterations
 """
 
 import numpy as np
 import pyspiel
 import os
-import argparse
 import glob
 import csv
 import random as py_random
@@ -54,85 +67,56 @@ def env_creator_self_play(env_config):
 
 register_env("hearts_env_self_play", env_creator_self_play)
 
-# #NEEDS A LOT OF IMPROVEMENT (READ OVER IT CAREFULLY LATER)
-# class AttentionMaskModel(TorchModelV2, nn.Module):
-#     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-#         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
-#         nn.Module.__init__(self)
+# ============================================================================
+# HYPERPARAMETERS - Centralized configuration
+# ============================================================================
+# Declare all hyperparameters once here to avoid duplication
 
-#         self.num_outputs = num_outputs
+# Training Hyperparameters
+NUM_EPOCHS = 10                  # Number of epochs per training iteration
+MINIBATCH_SIZE = 128             # 32 for CPU, 128 for GPU/MPS
+TRAIN_BATCH_SIZE = 16000         # 12000 for CPU, 16000 for GPU/MPS
+LEARNING_RATE = 5e-4             # Learning rate for optimizer
+ENTROPY_COEFF = 0.2              # Entropy regularization coefficient
+VF_LOSS_COEFF = 2.0              # Value function loss coefficient
+CLIP_PARAM = 0.3                 # PPO clipping parameter
+GRAD_CLIP = 0.5                  # Gradient clipping threshold
+GAMMA = 0.99                     # Discount factor
+LAMBDA = 0.95                    # GAE lambda parameter
 
-#         base_space = getattr(obs_space, "original_space", obs_space)
-#         if isinstance(base_space, gym_spaces.Dict) and "observations" in base_space.spaces:
-#             obs_dim = int(np.prod(base_space["observations"].shape))
-#         else:
-#             obs_dim = int(np.prod(base_space.shape))
+# Environment Settings
+NUM_ENV_RUNNERS = 2              # Number of parallel environment runners
+NUM_ENVS_PER_RUNNER = 1          # Environments per runner
 
-#         embed_dim = model_config.get("embed_dim", 128)
-#         num_heads = model_config.get("num_attention_heads", 4)
-#         num_layers = model_config.get("num_attention_layers", 2)
+# Model Architecture
+EMBED_DIM = 64                  # Embedding dimension for attention model
+NUM_ATTENTION_HEADS = 2          # Number of attention heads
+NUM_ATTENTION_LAYERS = 1         # Number of transformer layers
+FCNET_HIDDENS = [128, 128]       # Hidden layer sizes for fully connected network
 
-#         # 🔹 Change 1: Embed observations into a sequence
-#         self.input_proj = nn.Linear(obs_dim, embed_dim)
+# Evaluation Settings
+EVALUATION_INTERVAL = 15         # Evaluate every N iterations
+EVALUATION_DURATION = 300        # Number of episodes per evaluation
 
-#         # 🔹 Change 2: Transformer encoder for relational reasoning
-#         encoder_layer = nn.TransformerEncoderLayer(
-#             d_model=embed_dim,
-#             nhead=num_heads,
-#             dim_feedforward=embed_dim * 2,
-#             dropout=0.1,
-#             activation="relu",
-#             batch_first=True,
-#         )
-#         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+# Checkpoint Settings
+CHECKPOINT_FREQUENCY = 25        # Save checkpoint every N iterations
+NUM_CHECKPOINTS_TO_KEEP = 5      # Number of recent checkpoints to keep
 
-#         # 🔹 Policy head: project transformer outputs to logits
-#         self.logits_layer = nn.Linear(embed_dim, num_outputs)
+# Resource Settings
+NUM_GPUS = 0                     # Ray GPU allocation (0 for MPS/CPU)
+NUM_CPUS_PER_LEARNER = 1         # CPU cores per learner worker
 
-#         # 🔹 Value head: pool sequence → value
-#         self.value_net = nn.Sequential(
-#             nn.Linear(embed_dim, embed_dim),
-#             nn.ReLU(),
-#             nn.Linear(embed_dim, 1),
-#         )
-#         self._value_out = None
+# Training Configuration
+RESUME_CHECKPOINT = None         # Path to checkpoint directory to resume training from (None for new training)
+RESUME_FROM_LATEST_DIR = None    # Path to results directory to find latest checkpoint (None to disable)
+TOTAL_ITERATIONS = 200           # Total number of training iterations to run
+USE_WANDB = True                 # Enable Weights & Biases logging
 
-#     def forward(self, input_dict, state, seq_lens):
-#         obs_tensor = input_dict["obs"]
-#         if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
-#             obs = obs_tensor["observations"].float()
-#             action_mask = obs_tensor.get("action_mask", None)
-#             if action_mask is not None:
-#                 action_mask = action_mask.float()
-#         else:
-#             obs = obs_tensor.float()
-#             action_mask = None
+# Checkpoint Rotation Settings
+OPPONENT_PROBABILITY = 0.5       # Probability of training against older checkpoint (0.0-1.0)
+MAX_CHECKPOINT_LOOKBACK = 3      # Maximum number of checkpoint iterations to look back
 
-#         # 🔹 Project obs into embedding space and add sequence dimension
-#         x = self.input_proj(obs).unsqueeze(1)  # [B, 1, embed_dim]
-
-#         # 🔹 Run transformer encoder
-#         features = self.transformer(x)  # [B, 1, embed_dim]
-#         pooled = features.mean(dim=1)   # [B, embed_dim]
-
-#         # 🔹 Policy head
-#         logits = self.logits_layer(pooled)
-
-#         # 🔹 Apply action mask at logits stage
-#         if action_mask is not None:
-#             inf_mask = torch.clamp(
-#                 torch.log(action_mask), 
-#                 min=torch.finfo(torch.float32).min
-#             )
-#             logits = logits + inf_mask
-
-#         # 🔹 Value head
-#         self._value_out = self.value_net(pooled).squeeze(-1)
-
-#         return logits, state
-
-#     def value_function(self):
-#         return self._value_out
+# ============================================================================
 
 # Register the custom model so it can be referenced by name in the config
 ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
@@ -208,23 +192,8 @@ def get_available_checkpoints(experiment_dir, max_lookback=3):
     # Only keep the most recent max_lookback checkpoints
     return checkpoint_dirs[-max_lookback:] if len(checkpoint_dirs) > max_lookback else checkpoint_dirs
 
-def parse_arguments():
-    """Parse command line arguments for training configuration."""
-    parser = argparse.ArgumentParser(description='PPO Self-Play Training for Hearts')
-    parser.add_argument('--resume', type=str, default=None, 
-                       help='Path to checkpoint directory to resume training from')
-    parser.add_argument('--resume-from-latest', type=str, default=None,
-                       help='Path to results directory - will automatically find latest checkpoint')
-    parser.add_argument('--iterations', type=int, default=200,
-                       help='Number of training iterations to run (default: 250)')
-    parser.add_argument('--no-wandb', action='store_true',
-                       help='Disable W&B logging')
-    parser.add_argument('--opponent-prob', type=float, default=0.2,
-                       help='Probability of training against older checkpoint (default: 0.25)')
-    parser.add_argument('--max-lookback', type=int, default=3,
-                       help='Maximum number of checkpoint iterations to look back (default: 3)')
-    
-    return parser.parse_args()
+# Note: All configuration is now done via constants at the top of this file.
+# Previously used argparse, but migrated to centralized configuration.
 
 class CheckpointRotationManager:
     """Manages rotation of older checkpoints as opponents during training.
@@ -298,9 +267,6 @@ class CheckpointRotationManager:
 
 def main():
     """Main training function."""
-    # Parse command line arguments
-    args = parse_arguments()
-    
     # Configure PyTorch to use MPS if available (Apple Silicon GPU)
     if torch.backends.mps.is_available():
         # Enable MPS fallback to CPU for unsupported operations
@@ -317,7 +283,7 @@ def main():
         print("⚠️  MPS not available, using CPU")
 
     # Initialize Weights & Biases
-    if not args.no_wandb:
+    if USE_WANDB:
         wandb.init(
             project="hearts-ppo-selfplay_runs",
             entity="masonchoey-ucla",
@@ -326,39 +292,43 @@ def main():
             # Training hyperparameters
             "algorithm": "PPO",
             "framework": "torch",
-            "num_epochs": 20,
-            "minibatch_size": 64, #32 for cpu
-            "train_batch_size": 16000, #12000 for cpu
-            "learning_rate": 5e-4,
-            "entropy_coeff": 0.2,
-            "vf_loss_coeff": 2.0,
-            "clip_param": 0.3,
-            "grad_clip": 0.5,
-            "gamma": 0.95,
-            "lambda": 0.90,
+            "num_epochs": NUM_EPOCHS,
+            "minibatch_size": MINIBATCH_SIZE,
+            "train_batch_size": TRAIN_BATCH_SIZE,
+            "learning_rate": LEARNING_RATE,
+            "entropy_coeff": ENTROPY_COEFF,
+            "vf_loss_coeff": VF_LOSS_COEFF,
+            "clip_param": CLIP_PARAM,
+            "grad_clip": GRAD_CLIP,
+            "gamma": GAMMA,
+            "lambda": LAMBDA,
             
             # Environment settings
             "env": "hearts_env_self_play",
-            "num_env_runners": 2,  # Reduced for thermal management
-            "num_envs_per_env_runner": 1,
+            "num_env_runners": NUM_ENV_RUNNERS,
+            "num_envs_per_env_runner": NUM_ENVS_PER_RUNNER,
             
             # Model architecture
             "model_type": "masked_attention_model",
-            "embed_dim": 128, #64 for cpu
-            "num_attention_heads": 4, #2 for cpu
-            "num_attention_layers": 2, #1 for cpu
+            "fcnet_hiddens": FCNET_HIDDENS,
+            "custom_model_config": {
+                "embed_dim": EMBED_DIM,
+                "num_attention_heads": NUM_ATTENTION_HEADS,
+                "num_attention_layers": NUM_ATTENTION_LAYERS,
+            },
             
             # Training settings
-            "total_iterations": args.iterations,
-            "evaluation_interval": 15,
-            "evaluation_duration": 300,
+            "total_iterations": TOTAL_ITERATIONS,
+            "evaluation_interval": EVALUATION_INTERVAL,
+            "evaluation_duration": EVALUATION_DURATION,
+            "checkpoint_frequency": CHECKPOINT_FREQUENCY,
             
             # Opponent rotation settings
-            "opponent_prob": args.opponent_prob,
-            "max_lookback": args.max_lookback,
+            "opponent_prob": OPPONENT_PROBABILITY,
+            "max_lookback": MAX_CHECKPOINT_LOOKBACK,
             
             # Resume settings
-            "resumed_from_checkpoint": args.resume or args.resume_from_latest is not None,
+            "resumed_from_checkpoint": RESUME_CHECKPOINT or RESUME_FROM_LATEST_DIR is not None,
             },
             tags=["ppo", "self-play", "hearts", "transformer", "checkpoint-rotation"],
             notes="PPO training with attention-based model for Hearts card game, using checkpoint rotation to prevent overfitting",
@@ -376,7 +346,6 @@ def main():
     # PPO Configuration
     ppo_config = (
         PPOConfig()
-        .storage_path("./ray_results/PPO_hearts_env_self_play")
         .api_stack(
             enable_rl_module_and_learner=False,
             enable_env_runner_and_connector_v2=False,
@@ -390,34 +359,39 @@ def main():
         .training(
             model={
                 "custom_model": "masked_attention_model",
-                "fcnet_hiddens": [256, 256],
+                "fcnet_hiddens": FCNET_HIDDENS,
+                "custom_model_config": {
+                    "embed_dim": EMBED_DIM,
+                    "num_attention_heads": NUM_ATTENTION_HEADS,
+                    "num_attention_layers": NUM_ATTENTION_LAYERS,
+                }
             },
-            num_epochs=20,
-            minibatch_size=64,
-            train_batch_size=16000,
-            lr=5e-4,
-            entropy_coeff=0.2,
-            vf_loss_coeff=2.0,
-            clip_param=0.3,
-            grad_clip=0.5,
+            num_epochs=NUM_EPOCHS,
+            minibatch_size=MINIBATCH_SIZE,
+            train_batch_size=TRAIN_BATCH_SIZE,
+            lr=LEARNING_RATE,
+            entropy_coeff=ENTROPY_COEFF,
+            vf_loss_coeff=VF_LOSS_COEFF,
+            clip_param=CLIP_PARAM,
+            grad_clip=GRAD_CLIP,
             use_gae=True,
-            lambda_=0.90,
-            gamma=0.95,
+            lambda_=LAMBDA,
+            gamma=GAMMA,
         )
         .env_runners(
-            num_env_runners=2,  # Reduced from 7 to lower CPU temperature
-            num_envs_per_env_runner=1,
+            num_env_runners=NUM_ENV_RUNNERS,
+            num_envs_per_env_runner=NUM_ENVS_PER_RUNNER,
         )
         .resources(
             # Note: Ray doesn't recognize MPS as a GPU resource, but PyTorch will
             # still use MPS automatically when available. We just don't request
             # GPU resources from Ray's resource manager.
-            num_gpus=0,  # Ray resource allocation (not used for MPS)
-            num_cpus_per_learner_worker=1,
+            num_gpus=NUM_GPUS,
+            num_cpus_per_learner_worker=NUM_CPUS_PER_LEARNER,
         )
         .evaluation(
-            evaluation_interval=15,
-            evaluation_duration=300,
+            evaluation_interval=EVALUATION_INTERVAL,
+            evaluation_duration=EVALUATION_DURATION,
             evaluation_duration_unit="episodes",
             evaluation_config={"explore": False}
         )
@@ -430,16 +404,16 @@ def main():
     resume_from_checkpoint = None
     current_iteration = 0
     
-    if args.resume:
-        if os.path.exists(args.resume):
-            resume_from_checkpoint = os.path.abspath(args.resume)
+    if RESUME_CHECKPOINT:
+        if os.path.exists(RESUME_CHECKPOINT):
+            resume_from_checkpoint = os.path.abspath(RESUME_CHECKPOINT)
             print(f"Resuming training from checkpoint: {resume_from_checkpoint}")
         else:
-            print(f"Error: Checkpoint path does not exist: {args.resume}")
+            print(f"Error: Checkpoint path does not exist: {RESUME_CHECKPOINT}")
             exit(1)
-    elif args.resume_from_latest:
+    elif RESUME_FROM_LATEST_DIR:
         # Find the experiment directory and latest checkpoint
-        experiment_dir = find_experiment_checkpoint_dir(args.resume_from_latest)
+        experiment_dir = find_experiment_checkpoint_dir(RESUME_FROM_LATEST_DIR)
         if experiment_dir:
             latest_checkpoint = find_latest_checkpoint(experiment_dir)
             if latest_checkpoint:
@@ -461,7 +435,7 @@ def main():
                 print(f"No checkpoints found in experiment directory: {experiment_dir}")
                 exit(1)
         else:
-            print(f"No experiment directory found in: {args.resume_from_latest}")
+            print(f"No experiment directory found in: {RESUME_FROM_LATEST_DIR}")
             exit(1)
 
     # Print training information
@@ -479,12 +453,12 @@ def main():
     try:
         if resume_from_checkpoint and current_iteration > 0:
             # For completed trials, use manual training approach
-            target_iterations = args.iterations
+            target_iterations = TOTAL_ITERATIONS
             
             # Ensure we're extending beyond current iteration
             if target_iterations <= current_iteration:
                 target_iterations = current_iteration + 50
-                print(f"⚠️  Target iterations ({args.iterations}) <= current iteration ({current_iteration})")
+                print(f"⚠️  Target iterations ({TOTAL_ITERATIONS}) <= current iteration ({current_iteration})")
                 print(f"📈 Extending training to {target_iterations} iterations")
             else:
                 print(f"📈 Extending training to {target_iterations} iterations")
@@ -508,11 +482,11 @@ def main():
             # Initialize checkpoint rotation manager
             checkpoint_manager = CheckpointRotationManager(
                 experiment_dir=experiment_dir,
-                max_lookback=args.max_lookback,
-                opponent_prob=args.opponent_prob
+                max_lookback=MAX_CHECKPOINT_LOOKBACK,
+                opponent_prob=OPPONENT_PROBABILITY
             )
-            print(f"🔄 Checkpoint rotation enabled: {args.opponent_prob*100:.0f}% chance of using older checkpoints")
-            print(f"📊 Looking back up to {args.max_lookback} checkpoint iterations")
+            print(f"🔄 Checkpoint rotation enabled: {OPPONENT_PROBABILITY*100:.0f}% chance of using older checkpoints")
+            print(f"📊 Looking back up to {MAX_CHECKPOINT_LOOKBACK} checkpoint iterations")
             
             # Train manually for better control
             print(f"🏃 Starting training from iteration {current_iteration + 1} to {target_iterations}")
@@ -654,8 +628,8 @@ def main():
                 
                 wandb.log(wandb_metrics)
                 
-                # Save checkpoint every 25 iterations
-                if i % 25 == 0 or i == target_iterations:
+                # Save checkpoint at regular intervals
+                if i % CHECKPOINT_FREQUENCY == 0 or i == target_iterations:
                     # Create checkpoint directory path
                     checkpoint_dir = os.path.join(experiment_dir, f"checkpoint_{i:06d}")
                     checkpoint = algo.save(checkpoint_dir)
@@ -678,7 +652,7 @@ def main():
             
             # Configure W&B callback for Ray Tune (if enabled)
             callbacks = []
-            if not args.no_wandb:
+            if USE_WANDB:
                 wandb_callback = WandbLoggerCallback(
                     project="hearts-ppo-selfplay_runs",
                     entity="masonchoey-ucla",
@@ -689,11 +663,11 @@ def main():
                 callbacks.append(wandb_callback)
             
             run_config = tune.RunConfig(
-                stop={"training_iteration": args.iterations},
+                stop={"training_iteration": TOTAL_ITERATIONS},
                 checkpoint_config=tune.CheckpointConfig(
                     checkpoint_score_attribute="env_runners/episode_reward_mean",
-                    checkpoint_frequency=25,  # Save every 25 iterations for checkpoint rotation
-                    num_to_keep=5,
+                    checkpoint_frequency=CHECKPOINT_FREQUENCY,
+                    num_to_keep=NUM_CHECKPOINTS_TO_KEEP,
                     checkpoint_at_end=True,
                 ),
                 callbacks=callbacks if callbacks else None,
@@ -729,12 +703,14 @@ def main():
         print(f"Self-Play Training session ({training_type}) ended.")
         print("-" * 70)
         
-        # Print usage examples
+        # Print configuration instructions
         if not resume_from_checkpoint:
-            print("\nTo resume this training later, use one of these commands:")
-            print("  python main_self_play.py --resume-from-latest <results_directory>")
-            print("  python main_self_play.py --resume <specific_checkpoint_path>")
-            print("  python main_self_play.py --iterations 500  # for longer training")
+            print("\nTo resume this training later:")
+            print("  1. Open main_self_play.py")
+            print("  2. Set RESUME_FROM_LATEST_DIR to the results directory path")
+            print("     OR set RESUME_CHECKPOINT to a specific checkpoint path")
+            print("  3. Optionally adjust TOTAL_ITERATIONS for longer training")
+            print("  4. Run: python main_self_play.py")
             print("-" * 70)
 
  

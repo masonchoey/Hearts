@@ -95,6 +95,11 @@ class HeartsGymEnvSelfPlay(gym.Env):
         returns the observation for the next player to move, or terminates
         if the game is over. All players are assumed to be controlled by the
         same RL agent policy, except when opponent checkpoints are specified.
+        
+        Reward Strategy: End-of-round sparse rewards
+        - Returns 0.0 for all intermediate steps
+        - Only provides true game reward at termination
+        - This encourages learning long-term strategic play in Hearts
         """
         ts = self._last_timestep
         current_player = ts.observations["current_player"]
@@ -112,34 +117,31 @@ class HeartsGymEnvSelfPlay(gym.Env):
 
         ts = self._base_env.step([applied_action])
 
-        # Accumulate rewards for all players
+        # Accumulate final game rewards (but don't return them until termination)
         if ts.rewards is not None:
             for i in range(4):
-                # Scale the rewards to be less negative and more learnable
-                # Hearts rewards are typically penalty points, so we'll normalize them
-                base_reward = ts.rewards[i]
-                # Transform the reward to be less extreme
-                normalized_reward = base_reward / 10.0  # Scale down the magnitude
-                self._episode_rewards[i] += normalized_reward
+                # Hearts rewards are penalty points (negative in OpenSpiel)
+                # Accumulate the true game rewards without any shaping
+                self._episode_rewards[i] += ts.rewards[i]
 
         self._last_timestep = ts
         terminated = ts.last()
         truncated = False  # OpenSpiel environments are episodic, not truncated.
 
         if terminated:
-            # Game is over - return the final reward for the last acting player
+            # Game is over - return the final accumulated reward for this player
+            # This is the true game objective: minimize penalty points (negative reward)
             final_reward = self._episode_rewards[current_player]
             
-            # Add final reward shaping based on relative performance
-            # In Hearts, lower scores are better, so reward avoiding high penalties
-            final_score = abs(final_reward * 10)  # Convert back to penalty points
             obs = {
                 "observations": np.zeros(self.observation_space["observations"].shape, dtype=np.float32),
                 "action_mask": np.zeros(self._num_actions, dtype=np.int8)
             }
         else:
-            # Game continues - return current reward for the acting player
-            final_reward = self._episode_rewards[current_player]
+            # Game continues - return 0 reward during play
+            # This encourages the agent to learn the full game strategy
+            # rather than optimizing for immediate small rewards
+            final_reward = 0.0
             obs = self._current_obs()
 
         info = {

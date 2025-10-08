@@ -93,22 +93,22 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         else:
             obs_dim = int(np.prod(base_space.shape))
 
-        embed_dim = model_config.get("embed_dim", 64)
-        num_heads = model_config.get("num_attention_heads", 2)
-        num_layers = model_config.get("num_attention_layers", 1)
+        embed_dim = model_config.get("embed_dim", 256)  # Increased for better capacity
+        num_heads = model_config.get("num_attention_heads", 4)
+        num_layers = model_config.get("num_attention_layers", 2)
         
-        # 🔹 ADDED: Player identity embedding for multi-agent awareness
-        self.num_players = model_config.get("num_players", 4)  # Hearts has 4 players
-        self.player_embed_dim = model_config.get("player_embed_dim", 16)
-        self.player_embedding = nn.Embedding(self.num_players, self.player_embed_dim)
+        # 🔹 SIMPLIFIED: Remove player embedding - it's redundant with observation
+        # The Hearts observation already contains player-specific information
         
         # 🔹 FIXED: Use the full observation as-is without incorrect card/game state split
         # The OpenSpiel Hearts observation is already a structured representation
         # that we should not arbitrarily split
         
-        # 🔹 MODIFIED: Project full observation + player identity to embed_dim
-        combined_dim = obs_dim + self.player_embed_dim
-        self.input_proj = nn.Linear(combined_dim, embed_dim)
+        # 🔹 SIMPLIFIED: Direct projection from observation to embedding
+        self.input_proj = nn.Linear(obs_dim, embed_dim)
+        
+        # 🔹 ADDED: Layer normalization for better training stability
+        self.input_norm = nn.LayerNorm(embed_dim)
         
         # 🔹 ADDED: Positional encoding for sequence processing
         self.positional_encoding = PositionalEncoding(
@@ -137,14 +137,20 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
             nn.Linear(embed_dim, num_outputs)
         )
 
-        # 🔹 MODIFIED: Enhanced value head with separate architecture
+        # 🔹 IMPROVED: More powerful value head to increase explained variance
+        # This is critical - low vf_explained_var was a major issue
         self.value_net = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim * 2),  # Larger value network
+            nn.Linear(embed_dim, embed_dim * 2),
+            nn.LayerNorm(embed_dim * 2),  # Add normalization for stability
             nn.ReLU(),
             nn.Dropout(0.1),
             nn.Linear(embed_dim * 2, embed_dim),
+            nn.LayerNorm(embed_dim),
             nn.ReLU(),
-            nn.Linear(embed_dim, 1),
+            nn.Dropout(0.1),
+            nn.Linear(embed_dim, embed_dim // 2),
+            nn.ReLU(),
+            nn.Linear(embed_dim // 2, 1),
         )
         
         self._value_out = None
@@ -190,24 +196,13 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
 
         batch_size = obs.size(0)
         
-        # 🔹 ADDED: Get current player ID from game state (you may need to extract this differently)
-        # Assuming player ID is embedded in observation or passed separately
-        player_ids = input_dict.get("player_id", torch.zeros(batch_size, dtype=torch.long, device=obs.device))
-        
-        # 🔹 MODIFIED: Update observation history for sequence processing
+        # 🔹 SIMPLIFIED: Direct observation processing without player embedding
+        # The Hearts observation already contains player-specific information
         obs_sequence = self._update_history(obs, batch_size)  # [B, seq_len, obs_dim]
         
-        # 🔹 FIXED: Process the full observation without incorrect splitting
-        # OpenSpiel Hearts observation is already properly structured
-        full_obs = obs_sequence  # [B, seq_len, obs_dim]
-        
-        # 🔹 ADDED: Add player identity embedding
-        player_embed = self.player_embedding(player_ids)  # [B, player_embed_dim]
-        player_embed = player_embed.unsqueeze(1).expand(-1, self.seq_len, -1)  # [B, seq_len, player_embed_dim]
-        
-        # Concatenate full observation and player embedding, then project
-        full_embed = torch.cat([full_obs, player_embed], dim=-1)  # [B, seq_len, obs_dim + player_embed_dim]
-        x = self.input_proj(full_embed)  # [B, seq_len, embed_dim]
+        # 🔹 Project observation to embedding space
+        x = self.input_proj(obs_sequence)  # [B, seq_len, embed_dim]
+        x = self.input_norm(x)  # Normalize for training stability
 
         # 🔹 ADDED: Apply positional encoding for sequence processing
         x = self.positional_encoding(x)

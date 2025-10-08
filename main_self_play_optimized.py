@@ -1,17 +1,45 @@
 #!/usr/bin/env python3
 """
-PPO Self-Play Training Script - Optimized for NVIDIA T4 GPU
+PPO Self-Play Training Script - Optimized for Google Colab Pro (2 CPU + T4 GPU)
+
+This script trains a PPO agent to play Hearts using self-play, optimized for
+Google Colab Pro with 2 CPUs and NVIDIA T4 GPU (16GB VRAM).
+
+Key Features:
+- Centralized configuration: All hyperparameters and settings declared at the top
+- Colab Pro optimizations: Efficient CPU usage, balanced batch sizes for 2-CPU constraint
+- W&B integration: Comprehensive experiment tracking and logging
+- Mixed precision training: Optional Tensor core acceleration
+
+Configuration:
+  All hyperparameters and training settings are declared as constants at the top 
+  of this file (after imports). To modify any aspect of training, simply edit the 
+  constants in the configuration sections:
+  
+  - Training Hyperparameters (learning rate, epochs, batch sizes, etc.)
+  - Environment Settings (number of runners, environments per runner)
+  - Model Architecture (embedding dimensions, attention heads, etc.)
+  - Evaluation Settings (frequency, duration)
+  - Checkpoint Settings (frequency, number to keep)
+  - Resource Settings (GPU/CPU allocation)
+  - Training Configuration (iterations, W&B, mixed precision)
+
+Usage:
+  1. Configure all settings by editing the constants at the top of this file
+  2. Run the script:
+     python main_self_play_optimized.py
 """
 
 import numpy as np
 import pyspiel
 import os
-import argparse
 import glob
 import csv
+import ray
 from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig, PPO
 from ray.tune.registry import register_env
+from ray.air.integrations.wandb import WandbLoggerCallback
 from hearts_env_self_play import HeartsGymEnvSelfPlay
 import torch
 import torch.nn as nn
@@ -19,6 +47,7 @@ from gymnasium import spaces as gym_spaces
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models import ModelCatalog
 from attention_model import AttentionMaskModel
+from datetime import datetime
 
 def env_creator_self_play(env_config):
     """Factory that builds a self-play OpenSpiel Hearts environment for RLlib."""
@@ -27,94 +56,72 @@ def env_creator_self_play(env_config):
 
 register_env("hearts_env_self_play", env_creator_self_play)
 
+# ============================================================================
+# HYPERPARAMETERS - Centralized configuration for Colab Pro (2 CPU + T4 GPU)
+# ============================================================================
+# Declare all hyperparameters once here to avoid duplication
 
-# class ActionMaskModel(TorchModelV2, nn.Module):
-#     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-#         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
-#         nn.Module.__init__(self)
+# Training Hyperparameters (Colab Pro: 2 CPU + T4 GPU)
+NUM_EPOCHS = 12                  # More epochs to maximize GPU utilization per batch
+MINIBATCH_SIZE = 128             # Minibatch size for T4 efficiency
+TRAIN_BATCH_SIZE = 4000          # Balanced for 2-CPU sample collection speed
+LEARNING_RATE = 5e-4             # Learning rate
+ENTROPY_COEFF = 0.2              # Entropy coefficient for exploration
+VF_LOSS_COEFF = 2.0              # Value function loss coefficient
+CLIP_PARAM = 0.3                 # PPO clipping parameter
+GRAD_CLIP = 0.5                  # Gradient clipping
+GAMMA = 0.99                     # Discount factor
+LAMBDA = 0.95                    # GAE lambda parameter
 
-#         self.num_outputs = num_outputs
+# Environment Settings (Colab Pro: 2 CPUs total)
+NUM_ENV_RUNNERS = 1              # Single runner (limited by 2 CPUs)
+NUM_ENVS_PER_RUNNER = 4          # 4 parallel environments for faster sample collection
+NUM_CPUS_PER_RUNNER = 1.5        # Use 1.5 CPUs for env runner (0.5 reserved for main)
 
-#         # Read hidden sizes from config or use sensible defaults
-#         hiddens = model_config.get("fcnet_hiddens", [256, 256])
-#         layers = []
+# Model Architecture (T4 GPU Optimized - Larger Network)
+EMBED_DIM = 128                  # Larger embedding dimension for T4
+NUM_ATTENTION_HEADS = 4          # More attention heads for T4
+NUM_ATTENTION_LAYERS = 2         # More transformer layers for T4
+FCNET_HIDDENS = [1024, 1024, 512]  # Larger 3-layer network for T4
 
-#         # Determine observation dimensionality robustly (Dict or Box)
-#         base_space = getattr(obs_space, "original_space", obs_space)
-#         if isinstance(base_space, gym_spaces.Dict) and "observations" in base_space.spaces:
-#             obs_dim = int(np.prod(base_space["observations"].shape))
-#         else:
-#             # Fallback: already flattened Box
-#             obs_dim = int(np.prod(base_space.shape))
+# Evaluation Settings
+EVALUATION_INTERVAL = 15         # Regular evaluation
+EVALUATION_DURATION = 300        # Thorough evaluation
+EVALUATION_DURATION_UNIT = "episodes"
 
-#         last_dim = obs_dim
-#         for hidden_size in hiddens:
-#             layers.append(nn.Linear(last_dim, hidden_size))
-#             layers.append(nn.ReLU())
-#             last_dim = hidden_size
+# Checkpoint Settings
+CHECKPOINT_FREQUENCY = 25         # Save checkpoint every N iterations
+NUM_CHECKPOINTS_TO_KEEP = 5      # Number of recent checkpoints to keep
 
-#         self.policy_net = nn.Sequential(*layers)
-#         self.logits_layer = nn.Linear(last_dim, num_outputs)
-#         self.value_net = nn.Sequential(
-#             nn.Linear(last_dim, max(128, last_dim)),
-#             nn.ReLU(),
-#             nn.Linear(max(128, last_dim), 1),
-#         )
+# Resource Settings (Colab Pro: 2 CPUs + T4 GPU)
+NUM_GPUS = 1                     # Use the T4 GPU for neural network training
+NUM_CPUS_FOR_MAIN = 0.5          # Reserve 0.5 CPU for main process (2 CPUs total)
 
-#         self._value_out = None
+# Training Configuration
+TOTAL_ITERATIONS = 250           # Total number of training iterations to run
+USE_WANDB = True                 # Enable Weights & Biases logging
+USE_MIXED_PRECISION = False      # Enable mixed precision training for T4 Tensor cores
 
-#     def forward(self, input_dict, state, seq_lens):
-#         obs_tensor = input_dict["obs"]
-#         # Support both Dict obs and flattened Tensor obs
-#         if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
-#             obs = obs_tensor["observations"].float()
-#             action_mask = obs_tensor.get("action_mask", None)
-#             if action_mask is not None:
-#                 action_mask = action_mask.float()
-#         else:
-#             obs = obs_tensor.float()
-#             action_mask = None
-
-#         features = self.policy_net(obs)
-#         logits = self.logits_layer(features)
-
-#         if action_mask is not None:
-#             # log(0) -> -inf, log(1) -> 0
-#             inf_mask = torch.clamp(torch.log(action_mask), min=torch.finfo(torch.float32).min)
-#             logits = logits + inf_mask
-
-#         # Store value output
-#         self._value_out = self.value_net(features).squeeze(-1)
-
-#         return logits, state
-
-#     def value_function(self):
-#         return self._value_out
-
+# ============================================================================
 
 # Register the custom model so it can be referenced by name in the config
 ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
 
 
-def parse_arguments():
-    """Parse command line arguments for training configuration."""
-    parser = argparse.ArgumentParser(description='PPO Self-Play Training for Hearts (Optimized for NVIDIA T4 GPU)')
-    parser.add_argument('--resume', type=str, default=None, 
-                       help='Path to checkpoint directory to resume training from')
-    parser.add_argument('--resume-from-latest', type=str, default=None,
-                       help='Path to results directory - will automatically find latest checkpoint')
-    parser.add_argument('--iterations', type=int, default=500,
-                       help='Number of training iterations to run (default: 500)')
-    parser.add_argument('--use-mixed-precision', action='store_true',
-                       help='Enable mixed precision training for T4 Tensor cores')
-    
-    return parser.parse_args()
-
-
 def main():
-    """Main training function optimized for NVIDIA T4 GPU."""
-    # Parse command line arguments
-    args = parse_arguments()
+    """Main training function optimized for Google Colab Pro (2 CPU + T4 GPU)."""
+    # Initialize Ray (important for Google Colab environments)
+    if not ray.is_initialized():
+        ray.init(
+            num_cpus=NUM_CPUS_FOR_MAIN + NUM_ENV_RUNNERS * NUM_CPUS_PER_RUNNER,
+            num_gpus=NUM_GPUS,
+            ignore_reinit_error=True,
+            include_dashboard=False,  # Disable dashboard for Colab
+        )
+        print("✅ Ray initialized successfully")
+    
+    # Note: W&B initialization is handled by WandbLoggerCallback in Ray Tune
+    # No need to call wandb.init() here as it will cause conflicts
 
     # PPO Configuration - Optimized for NVIDIA T4 GPU
     ppo_config = (
@@ -127,42 +134,45 @@ def main():
         .framework("torch")
         .resources(
             # T4 GPU Configuration - Maximize GPU utilization
-            num_gpus=1,                    # Use the T4 GPU for neural network training
-            num_cpus_for_main_process=1,   # Reserve 1 CPU for main process
+            num_gpus=NUM_GPUS,
+            num_cpus_for_main_process=NUM_CPUS_FOR_MAIN,
         )
         .training(
             model={
                 "custom_model": "masked_attention_model",
-                "fcnet_hiddens": [1024, 1024, 512],  # Larger 3-layer network for T4
-                "use_lstm": False,
-                "max_seq_len": 1,
+                "fcnet_hiddens": FCNET_HIDDENS,
+                "custom_model_config": {
+                    "embed_dim": EMBED_DIM,
+                    "num_attention_heads": NUM_ATTENTION_HEADS,
+                    "num_attention_layers": NUM_ATTENTION_LAYERS,
+                }
             },
             # T4-optimized training hyperparameters
-            num_epochs=30,              # More epochs to fully utilize GPU
-            minibatch_size=128,         # Large minibatches for T4 efficiency (16GB VRAM)
-            train_batch_size=32000,     # Very large batch size leveraging T4's 16GB memory
-            lr=5e-5,                   # Lower LR for stability with very large batches
+            num_epochs=NUM_EPOCHS,
+            minibatch_size=MINIBATCH_SIZE,
+            train_batch_size=TRAIN_BATCH_SIZE,
+            lr=LEARNING_RATE,
             lr_schedule=None,          # Constant learning rate
-            entropy_coeff=0.05,        # Slightly lower entropy for more focused learning
-            vf_loss_coeff=2.0,
-            clip_param=0.2,
-            grad_clip=1.0,             # Slightly higher grad clip for large batches
+            entropy_coeff=ENTROPY_COEFF,
+            vf_loss_coeff=VF_LOSS_COEFF,
+            clip_param=CLIP_PARAM,
+            grad_clip=GRAD_CLIP,
             use_gae=True,
-            lambda_=0.95,
-            gamma=0.99,
-            # Enable mixed precision if requested (T4 Tensor cores)
-            **({"mixed_precision": True} if args.use_mixed_precision else {}),
+            lambda_=LAMBDA,
+            gamma=GAMMA,
+            # Enable mixed precision if configured (T4 Tensor cores)
+            **({"mixed_precision": True} if USE_MIXED_PRECISION else {}),
         )
         .env_runners(
             # Scale environment runners based on available CPUs
-            num_env_runners=2,          # Use 2 runners if you have more CPUs available
-            num_envs_per_env_runner=4,  # Run 4 environments per runner for high throughput
-            num_cpus_per_env_runner=1,  # 1 CPU per runner
+            num_env_runners=NUM_ENV_RUNNERS,
+            num_envs_per_env_runner=NUM_ENVS_PER_RUNNER,
+            num_cpus_per_env_runner=NUM_CPUS_PER_RUNNER,
         )
         .evaluation(
-            evaluation_interval=25,     # Regular evaluation
-            evaluation_duration=300,     # Thorough evaluation
-            evaluation_duration_unit="episodes",
+            evaluation_interval=EVALUATION_INTERVAL,
+            evaluation_duration=EVALUATION_DURATION,
+            evaluation_duration_unit=EVALUATION_DURATION_UNIT,
             evaluation_config={"explore": False}
         )
         .debugging(
@@ -171,45 +181,62 @@ def main():
     )
 
     print("=" * 80)
-    print("🚀 NVIDIA T4 GPU OPTIMIZED PPO Self-Play Training")
+    print("🚀 GOOGLE COLAB PRO PPO Self-Play Training (2 CPU + T4 GPU)")
     print("=" * 80)
-    print("T4 GPU Specifications:")
-    print("  • 16 GB GDDR6 Memory")
-    print("  • 2,560 CUDA Cores")
-    print("  • 320 Tensor Cores")
-    print("  • 65 TFLOPS FP16 Performance")
+    print("Colab Pro Specifications:")
+    print("  • 2 vCPUs")
+    print("  • ~13-25 GB RAM")
+    print("  • T4 GPU: 16 GB GDDR6 Memory, 2,560 CUDA Cores, 320 Tensor Cores")
     print()
     print("Optimized Configuration:")
-    print("  • Environment Runners: 2 (with 4 envs per runner = 8 total envs)")
-    print("  • CPU Usage: 1 (main) + 2 (env runners) = 3 CPUs")
-    print("  • GPU Usage: 1 T4 GPU for neural network training")
-    print("  • Batch Size: 32,000 (leveraging T4's 16GB memory)")
-    print("  • Network Size: 1024→1024→512 (3-layer deep network)")
-    print("  • Training Epochs: 30 (maximize GPU utilization)")
-    print("  • Minibatch Size: 128 (optimal for T4)")
-    if args.use_mixed_precision:
+    print(f"  • Environment Runners: {NUM_ENV_RUNNERS} runner × {NUM_ENVS_PER_RUNNER} envs = {NUM_ENV_RUNNERS * NUM_ENVS_PER_RUNNER} parallel environments")
+    print(f"  • CPU Usage: {NUM_CPUS_FOR_MAIN} (main) + {NUM_ENV_RUNNERS} × {NUM_CPUS_PER_RUNNER} (runners) = {NUM_CPUS_FOR_MAIN + NUM_ENV_RUNNERS * NUM_CPUS_PER_RUNNER} CPUs")
+    print(f"  • GPU Usage: {NUM_GPUS} T4 GPU for neural network training & inference")
+    print(f"  • Batch Size: {TRAIN_BATCH_SIZE:,} samples (balanced for 2-CPU collection)")
+    print(f"  • Network Size: {' → '.join(map(str, FCNET_HIDDENS))} (3-layer deep network)")
+    print(f"  • Training Epochs: {NUM_EPOCHS} (maximize GPU work per batch)")
+    print(f"  • Minibatch Size: {MINIBATCH_SIZE}")
+    print(f"  • Attention Heads: {NUM_ATTENTION_HEADS} | Layers: {NUM_ATTENTION_LAYERS} | Embed Dim: {EMBED_DIM}")
+    if USE_MIXED_PRECISION:
         print("  • Mixed Precision: ENABLED (using Tensor cores)")
     else:
-        print("  • Mixed Precision: DISABLED (use --use-mixed-precision to enable)")
+        print("  • Mixed Precision: DISABLED (set USE_MIXED_PRECISION = True to enable)")
+    if USE_WANDB:
+        print(f"  • W&B Logging: ENABLED (project: hearts-ppo-t4gpu)")
+    else:
+        print("  • W&B Logging: DISABLED")
     print("=" * 80)
 
     try:
+        # Configure W&B callback for Ray Tune (if enabled)
+        callbacks = []
+        if USE_WANDB:
+            wandb_callback = WandbLoggerCallback(
+                project="hearts-ppo-t4gpu",
+                entity="masonchoey-ucla",
+                api_key="",
+                log_config=True,  # Log the full config
+                save_checkpoints=False,  # We handle checkpoints ourselves
+            )
+            callbacks.append(wandb_callback)
+        
         # Use Ray Tune for training
         run_config = tune.RunConfig(
-            stop={"training_iteration": args.iterations},
+            stop={"training_iteration": TOTAL_ITERATIONS},
             checkpoint_config=tune.CheckpointConfig(
                 checkpoint_score_attribute="env_runners/episode_reward_mean",
-                checkpoint_frequency=5,
-                num_to_keep=5,
+                checkpoint_frequency=CHECKPOINT_FREQUENCY,
+                num_to_keep=NUM_CHECKPOINTS_TO_KEEP,
                 checkpoint_at_end=True,
             ),
+            callbacks=callbacks if callbacks else None,
         )
         
         tuner = tune.Tuner("PPO", param_space=ppo_config, run_config=run_config)
         results = tuner.fit()
         
         print("\n" + "=" * 80)
-        print("✅ T4 GPU Optimized Self-Play Training completed successfully!")
+        print("✅ Colab Pro Self-Play Training completed successfully!")
         print("Final results:")
         print(f"Best trial: {results.get_best_result()}")
         
@@ -224,8 +251,13 @@ def main():
         print("Check the logs and checkpoints in the Ray results directory.")
         
     finally:
-        print("🏁 T4 GPU optimized training session ended.")
-        print("💡 Pro Tip: Use 'nvidia-smi' to monitor GPU utilization during training")
+        # Cleanup
+        if ray.is_initialized():
+            ray.shutdown()
+            print("✅ Ray shutdown successfully")
+        # W&B cleanup is handled automatically by WandbLoggerCallback
+        print("🏁 Colab Pro training session ended.")
+        print("💡 Pro Tip: Use '!nvidia-smi' in Colab to monitor GPU utilization during training")
         print("=" * 80)
 
 

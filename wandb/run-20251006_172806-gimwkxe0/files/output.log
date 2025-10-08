@@ -1,0 +1,18 @@
+🚀 MPS (GPU) is available! PyTorch will automatically use Apple Silicon GPU.
+   Note: Ray resource manager doesn't track MPS, but your model will still use the GPU.
+Traceback (most recent call last):
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py", line 793, in <module>
+    main()
+    ~~~~^^
+  File "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py", line 427, in main
+    .storage_path("./ray_results/PPO_hearts_env_self_play")
+     ^^^^^^^^^^^^
+AttributeError: 'PPOConfig' object has no attribute 'storage_path'
+Traceback (most recent call last):
+  File [35m"/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py"[0m, line [35m793[0m, in [35m<module>[0m
+    [31mmain[0m[1;31m()[0m
+    [31m~~~~[0m[1;31m^^[0m
+  File [35m"/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py"[0m, line [35m427[0m, in [35mmain[0m
+    .[1;31mstorage_path[0m("./ray_results/PPO_hearts_env_self_play")
+     [1;31m^^^^^^^^^^^^[0m
+[1;35mAttributeError[0m: [35m'PPOConfig' object has no attribute 'storage_path'[0m

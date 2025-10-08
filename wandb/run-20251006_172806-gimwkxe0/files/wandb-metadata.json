@@ -1,0 +1,17 @@
+{
+  "os": "macOS-14.5-arm64-arm-64bit-Mach-O",
+  "python": "CPython 3.13.5",
+  "startedAt": "2025-10-07T00:28:06.656439Z",
+  "program": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/main_self_play.py",
+  "codePath": "main_self_play.py",
+  "codePathLocal": "main_self_play.py",
+  "git": {
+    "remote": "https://github.com/masonchoey/Hearts.git",
+    "commit": "a3f35a8671a266b54a1637e322089dfec7808eed"
+  },
+  "email": "mason@choey.com",
+  "root": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts",
+  "host": "Masons-MacBook-Air.local",
+  "executable": "/Users/masonchoey/Documents/GitHub/OpenSpiel-Hearts/.venv/bin/python3",
+  "writerId": "l4783rcnntugcw77aalqy7cn2w5firxj"
+}
