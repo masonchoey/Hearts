@@ -7,8 +7,20 @@ from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models import ModelCatalog
 import numpy as np
 
+# OpenSpiel Hearts observation structure (total: 5088 values)
+# Based on hearts.h lines 65-72 and hearts.cc lines 241-310
+OBS_STRUCTURE = {
+    'pass_dir': (0, 4),           # 4 values - one-hot pass direction
+    'dealt_hand': (4, 56),         # 52 values - initial cards dealt
+    'passed_cards': (56, 108),     # 52 values - cards passed away
+    'received_cards': (108, 160),  # 52 values - cards received from opponent
+    'current_hand': (160, 212),    # 52 values - CRITICAL: cards currently in hand
+    'points': (212, 356),          # 144 values - thermometer encoding of scores (36 per player * 4)
+    'trick_history': (356, 5088)   # 4732 values - history of all tricks played (13 tricks * 364)
+}
+
 class PositionalEncoding(nn.Module):
-    """🔹 ADDED: Explicit positional encodings for sequence processing"""
+    """Explicit positional encodings for sequence processing"""
     def __init__(self, embed_dim, max_len=100, dropout=0.1):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -75,16 +87,28 @@ class AttentionPooling(nn.Module):
         
         return pooled.squeeze(1)  # Remove sequence dimension
 
-#TODO: STILL NEED TO CALIBRATE OUTPUT OF ENVIRONMENT TO MATCH THE MODEL
 class AttentionMaskModel(TorchModelV2, nn.Module):
+    """
+    Structured Hearts model that properly parses the 5088-length observation tensor.
+    
+    Instead of treating the observation as a flat vector, this model understands
+    the semantic structure:
+    - Pass direction (4 values)
+    - Card representations (52 values each for dealt/passed/received/current hand)
+    - Points (144 values - 36 per player)
+    - Trick history (4732 values)
+    
+    This allows the model to immediately understand which cards are in its hand,
+    rather than learning this from scratch through backpropagation.
+    """
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
         nn.Module.__init__(self)
 
         self.num_outputs = num_outputs
         
-        # 🔹 ADDED: Get sequence length from config for multi-timestep processing
-        self.seq_len = model_config.get("seq_len", 5)  # Process last 5 game states (TODO: CHANGE THIS TO BE VARIABLE)
+        # Get sequence length from config for multi-timestep processing
+        self.seq_len = model_config.get("seq_len", 5)
         self.store_history = model_config.get("store_history", True)
         
         base_space = getattr(obs_space, "original_space", obs_space)
@@ -93,21 +117,54 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         else:
             obs_dim = int(np.prod(base_space.shape))
 
-        embed_dim = model_config.get("embed_dim", 256)  # Increased for better capacity
+        # Verify observation dimension matches expected structure
+        assert obs_dim == 5088, f"Expected observation dimension 5088, got {obs_dim}"
+
+        embed_dim = model_config.get("embed_dim", 256)
         num_heads = model_config.get("num_attention_heads", 4)
         num_layers = model_config.get("num_attention_layers", 2)
         
-        # 🔹 SIMPLIFIED: Remove player embedding - it's redundant with observation
-        # The Hearts observation already contains player-specific information
+        # ===== STRUCTURED OBSERVATION PARSING =====
+        # Instead of one linear projection, we create separate embeddings
+        # for different semantic components of the observation
         
-        # 🔹 FIXED: Use the full observation as-is without incorrect card/game state split
-        # The OpenSpiel Hearts observation is already a structured representation
-        # that we should not arbitrarily split
+        # 1. Pass direction embedding (4 -> 16)
+        self.pass_dir_embed = nn.Sequential(
+            nn.Linear(4, 16),
+            nn.ReLU()
+        )
         
-        # 🔹 SIMPLIFIED: Direct projection from observation to embedding
-        self.input_proj = nn.Linear(obs_dim, embed_dim)
+        # 2. Card representations (52 values each)
+        # Shared embedding for all card-based features (current hand, dealt hand, etc.)
+        card_embed_dim = 64
+        self.card_embed = nn.Sequential(
+            nn.Linear(52, card_embed_dim),
+            nn.LayerNorm(card_embed_dim),
+            nn.ReLU()
+        )
         
-        # 🔹 ADDED: Layer normalization for better training stability
+        # 3. Points embedding (144 -> 64)
+        # Thermometer encoding of scores for all 4 players
+        self.points_embed = nn.Sequential(
+            nn.Linear(144, 64),
+            nn.ReLU()
+        )
+        
+        # 4. Trick history embedding (4732 -> 128)
+        # History of all 13 tricks played so far
+        self.trick_history_embed = nn.Sequential(
+            nn.Linear(4732, 128),
+            nn.ReLU()
+        )
+        
+        # Calculate total embedding dimension after concatenation
+        # 16 (pass_dir) + 64*4 (card embeds) + 64 (points) + 128 (tricks) = 464
+        structured_dim = 16 + (card_embed_dim * 4) + 64 + 128
+        
+        # Project structured features to model embedding dimension
+        self.structured_proj = nn.Linear(structured_dim, embed_dim)
+        
+        # Layer normalization for better training stability
         self.input_norm = nn.LayerNorm(embed_dim)
         
         # 🔹 ADDED: Positional encoding for sequence processing
@@ -180,6 +237,65 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         
         return self.obs_history.clone()
 
+    def _parse_observation(self, obs):
+        """
+        Parse the flat 5088-length observation into structured semantic components.
+        
+        Args:
+            obs: [batch_size, 5088] tensor
+            
+        Returns:
+            dict with parsed components
+        """
+        # Extract each component according to OBS_STRUCTURE
+        parsed = {}
+        parsed['pass_dir'] = obs[:, OBS_STRUCTURE['pass_dir'][0]:OBS_STRUCTURE['pass_dir'][1]]
+        parsed['dealt_hand'] = obs[:, OBS_STRUCTURE['dealt_hand'][0]:OBS_STRUCTURE['dealt_hand'][1]]
+        parsed['passed_cards'] = obs[:, OBS_STRUCTURE['passed_cards'][0]:OBS_STRUCTURE['passed_cards'][1]]
+        parsed['received_cards'] = obs[:, OBS_STRUCTURE['received_cards'][0]:OBS_STRUCTURE['received_cards'][1]]
+        parsed['current_hand'] = obs[:, OBS_STRUCTURE['current_hand'][0]:OBS_STRUCTURE['current_hand'][1]]
+        parsed['points'] = obs[:, OBS_STRUCTURE['points'][0]:OBS_STRUCTURE['points'][1]]
+        parsed['trick_history'] = obs[:, OBS_STRUCTURE['trick_history'][0]:OBS_STRUCTURE['trick_history'][1]]
+        
+        return parsed
+    
+    def _embed_structured_obs(self, parsed_obs):
+        """
+        Embed each semantic component and concatenate into a unified representation.
+        
+        Args:
+            parsed_obs: dict with parsed observation components
+            
+        Returns:
+            [batch_size, structured_dim] tensor
+        """
+        # Embed each component
+        pass_dir_emb = self.pass_dir_embed(parsed_obs['pass_dir'])  # [B, 16]
+        
+        # Embed all card-based features using shared embedding
+        dealt_emb = self.card_embed(parsed_obs['dealt_hand'])  # [B, 64]
+        passed_emb = self.card_embed(parsed_obs['passed_cards'])  # [B, 64]
+        received_emb = self.card_embed(parsed_obs['received_cards'])  # [B, 64]
+        current_emb = self.card_embed(parsed_obs['current_hand'])  # [B, 64] - MOST IMPORTANT!
+        
+        points_emb = self.points_embed(parsed_obs['points'])  # [B, 64]
+        tricks_emb = self.trick_history_embed(parsed_obs['trick_history'])  # [B, 128]
+        
+        # Concatenate all embeddings
+        # Order: pass_dir, current_hand, dealt_hand, passed, received, points, tricks
+        # We put current_hand early because it's the most important for decision making
+        combined = torch.cat([
+            pass_dir_emb,      # 16
+            current_emb,       # 64 - CRITICAL: what cards can we play?
+            dealt_emb,         # 64 - what was our original hand?
+            passed_emb,        # 64 - what did we pass away?
+            received_emb,      # 64 - what did we receive?
+            points_emb,        # 64 - current scores
+            tricks_emb         # 128 - what has been played?
+        ], dim=-1)  # Total: 464
+        
+        return combined
+
     def forward(self, input_dict, state, seq_lens):
         obs_tensor = input_dict["obs"]
         if isinstance(obs_tensor, dict) and "observations" in obs_tensor:
@@ -190,33 +306,48 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
             else:
                 raise ValueError("action_mask is not in obs_tensor")
         else:
-            # obs = obs_tensor.float()
-            # action_mask = None
             raise ValueError("obs_tensor is not a dict")
 
         batch_size = obs.size(0)
         
-        # 🔹 SIMPLIFIED: Direct observation processing without player embedding
-        # The Hearts observation already contains player-specific information
-        obs_sequence = self._update_history(obs, batch_size)  # [B, seq_len, obs_dim]
+        # Update observation history for sequence processing
+        obs_sequence = self._update_history(obs, batch_size)  # [B, seq_len, 5088]
         
-        # 🔹 Project observation to embedding space
-        x = self.input_proj(obs_sequence)  # [B, seq_len, embed_dim]
+        # Parse and embed each observation in the sequence
+        seq_len = obs_sequence.size(1)
+        embedded_sequence = []
+        
+        for t in range(seq_len):
+            obs_t = obs_sequence[:, t, :]  # [B, 5088]
+            
+            # Parse into structured components
+            parsed = self._parse_observation(obs_t)
+            
+            # Embed structured components
+            structured_emb = self._embed_structured_obs(parsed)  # [B, 464]
+            
+            # Project to model embedding dimension
+            emb_t = self.structured_proj(structured_emb)  # [B, embed_dim]
+            
+            embedded_sequence.append(emb_t)
+        
+        # Stack into sequence: [B, seq_len, embed_dim]
+        x = torch.stack(embedded_sequence, dim=1)
         x = self.input_norm(x)  # Normalize for training stability
 
-        # 🔹 ADDED: Apply positional encoding for sequence processing
+        # Apply positional encoding for sequence processing
         x = self.positional_encoding(x)
 
-        # 🔹 UNCHANGED: Run transformer encoder (now with proper sequences)
+        # Run transformer encoder to capture sequential dependencies
         features = self.transformer(x)  # [B, seq_len, embed_dim]
         
-        # 🔹 MODIFIED: Use attention pooling instead of mean pooling
+        # Use attention pooling to aggregate sequence information
         pooled = self.attention_pooling(features)  # [B, embed_dim]
 
-        # 🔹 MODIFIED: Enhanced policy head
+        # Generate policy logits
         logits = self.logits_layer(pooled)
 
-        # 🔹 UNCHANGED: Apply action mask at logits stage
+        # Apply action mask to prevent illegal actions
         if action_mask is not None:
             inf_mask = torch.clamp(
                 torch.log(action_mask), 
@@ -224,7 +355,7 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
             )
             logits = logits + inf_mask
 
-        # 🔹 MODIFIED: Enhanced value head
+        # Generate value estimate
         self._value_out = self.value_net(pooled).squeeze(-1)
 
         return logits, state
