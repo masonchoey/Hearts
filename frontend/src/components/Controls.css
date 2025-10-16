@@ -1,0 +1,63 @@
+.controls {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  z-index: 100;
+}
+
+.control-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 30px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  min-width: 150px;
+  text-align: center;
+}
+
+.control-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.control-button.scoreboard {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+}
+
+.control-button.reset {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  color: white;
+  font-size: 0.9rem;
+  min-width: 150px;
+}
+
+.game-info span {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+}
+
+.hearts-broken {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+
