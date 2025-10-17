@@ -8,8 +8,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 
-from game.state_manager import GameStateManager
-from schemas.types import GameState, PlayMoveRequest, PlayMoveResponse
+from .game.state_manager import GameStateManager
+from .schemas.types import GameState, PlayMoveRequest, PlayMoveResponse, PassCardsRequest
 
 app = FastAPI(title="Hearts Game API", version="1.0.0")
 
@@ -88,6 +88,18 @@ async def play_move(game_id: str, request: PlayMoveRequest):
         raise HTTPException(status_code=500, detail=f"Failed to process move: {str(e)}")
 
 
+@app.post("/pass/{game_id}")
+async def pass_cards(game_id: str, request: PassCardsRequest):
+    """Pass 3 cards during the passing phase"""
+    try:
+        game_state = game_manager.pass_cards(game_id, request.player_id, request.cards)
+        return {"state": game_state.dict()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to pass cards: {str(e)}")
+
+
 @app.post("/reset/{game_id}")
 async def reset_game(game_id: str):
     """
@@ -98,6 +110,26 @@ async def reset_game(game_id: str):
         return {"state": game_state.dict()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to reset game: {str(e)}")
+
+
+@app.post("/ai-turns/{game_id}")
+async def process_ai_turns(game_id: str):
+    """
+    Process AI turns until it's the human player's turn or trick is complete
+    Useful for debugging or manual AI turn triggering
+    """
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    try:
+        updated_state = game_manager.process_ai_turns(game_id)
+        return {
+            "state": updated_state.dict(),
+            "ai_turns_processed": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process AI turns: {str(e)}")
 
 
 @app.delete("/game/{game_id}")

@@ -6,7 +6,7 @@ Uses OpenSpiel RL Environment wrapper (same as training code) to prevent segfaul
 import pyspiel
 import numpy as np
 from typing import List, Tuple, Optional
-from schemas.types import Card, Player
+from ..schemas.types import Card, Player
 from open_spiel.python.rl_environment import Environment as OSPSingle
 
 
@@ -17,7 +17,9 @@ class HeartsGame:
     """
     
     # Card mappings for OpenSpiel
-    SUIT_MAP = {"C": 0, "D": 1, "S": 2, "H": 3}
+    # OpenSpiel uses: action = rank * 4 + suit (NOT suit * 13 + rank)
+    # Suit order: Clubs=0, Diamonds=1, Hearts=2, Spades=3
+    SUIT_MAP = {"C": 0, "D": 1, "H": 2, "S": 3}
     RANK_MAP = {"2": 0, "3": 1, "4": 2, "5": 3, "6": 4, "7": 5, "8": 6, "9": 7, "T": 8, "J": 9, "Q": 10, "K": 11, "A": 12}
     REVERSE_SUIT_MAP = {v: k for k, v in SUIT_MAP.items()}
     REVERSE_RANK_MAP = {v: k for k, v in RANK_MAP.items()}
@@ -28,14 +30,11 @@ class HeartsGame:
         self._env = OSPSingle(pyspiel.load_game("hearts"), players=4)
         self._timestep = None
         self.hearts_broken = False
-        # Access the underlying OpenSpiel state for hand extraction
-        self._state = None
         self.reset()
         
     def reset(self):
         """Reset game to initial state"""
         self._timestep = self._env.reset()
-        self._state = self._env.get_state  # This is the OpenSpiel state object
         self.hearts_broken = False
         
     def get_observation(self, player_id: int) -> np.ndarray:
@@ -92,94 +91,80 @@ class HeartsGame:
         
         # Step the environment with the action (wrapped in list for OSPSingle API)
         self._timestep = self._env.step([action])
-        self._state = self._env.get_state  # Update state reference
         
         # Update hearts_broken based on the action (if it's a heart)
-        # Heart cards are actions 39-51 (suit 3 * 13 + rank)
-        if 39 <= action <= 51:
+        # Hearts have suit=2, so action % 4 == 2
+        if action % 4 == 2:
             self.hearts_broken = True
         
     def card_to_action(self, card: Card) -> int:
         """
         Convert a Card object to an OpenSpiel action index
-        OpenSpiel uses action = suit * 13 + rank
+        OpenSpiel uses action = rank * 4 + suit
         """
         suit_idx = self.SUIT_MAP[card.suit]
         rank_idx = self.RANK_MAP[card.rank]
-        return suit_idx * 13 + rank_idx
+        return rank_idx * 4 + suit_idx
     
     def action_to_card(self, action: int) -> Card:
         """
         Convert an OpenSpiel action index to a Card object
+        OpenSpiel uses action = rank * 4 + suit, so:
+        - suit = action % 4
+        - rank = action // 4
         """
-        suit_idx = action // 13
-        rank_idx = action % 13
+        suit_idx = action % 4
+        rank_idx = action // 4
         suit = self.REVERSE_SUIT_MAP[suit_idx]
         rank = self.REVERSE_RANK_MAP[rank_idx]
         return Card(suit=suit, rank=rank)
     
-    def get_player_hand(self, player_id: int) -> List[Card]:
+    def get_player_hand(self, player_id: int) -> list[Card]:
         """
-        Extract player's hand from the underlying OpenSpiel state
-        Returns list of Card objects
+        Extract player's hand from the observation vector
+        Returns list of Card objects sorted by suit (C, D, H, S) then rank (2-A)
         
-        Parses the information_state_string which contains the hand in a readable format.
+        The observation vector contains:
+        - Dealt hand at indices 4-56 (52 values)
+        - Current hand at indices 160-212 (52 values)
+        
+        Each index represents a card (1 if present, 0 if not), where:
+        card_index = suit * 13 + rank
         """
-        if self._state is None:
+        if self._timestep is None:
             return []
         
         hand = []
-        state = self._state
         
         try:
-            # Get the information state string for this player
-            # Format example:
-            # Pass Direction: Left
-            # 
-            # Hand: 
-            # S KQT92
-            # H 2
-            # D AKJ
-            # C Q974
-            info_state_str = state.information_state_string(player_id)
+            # Get observation vector for this player
+            observation = self.get_observation(player_id)
             
-            # Parse the hand section
-            # Find the "Hand:" marker and extract cards from the following lines
-            lines = info_state_str.split('\n')
-            in_hand_section = False
+            # First check current hand (indices 160-212)
+            current_hand_slice = observation[160:212]
             
-            for line in lines:
-                line = line.strip()
-                
-                if line == "Hand:":
-                    in_hand_section = True
-                    continue
-                
-                if not in_hand_section:
-                    continue
-                
-                # Empty line or start of next section ends the hand
-                if line == "" or (line and not line[0] in ['S', 'H', 'D', 'C']):
-                    break
-                
-                # Parse card line (e.g., "S KQT92" or "H 2" or "S none")
-                if line and line[0] in ['S', 'H', 'D', 'C']:
-                    suit = line[0]
-                    cards_part = line[2:].strip()  # Get the cards part
-                    
-                    # Handle "none" case (no cards in this suit)
-                    if cards_part.lower() == 'none':
-                        continue
-                    
-                    # Remove spaces and parse each rank character
-                    cards_str = cards_part.replace(' ', '')
-                    for rank_char in cards_str:
-                        hand.append(Card(suit=suit, rank=rank_char))
+            # If current hand is empty (all zeros), use dealt hand (indices 4-56)
+            if np.sum(current_hand_slice) == 0:
+                hand_slice = observation[4:56]
+            else:
+                hand_slice = current_hand_slice
+            
+            # Convert the one-hot encoding to Card objects
+            # hand_slice has 52 values, one for each possible card
+            # Index i corresponds to card with action index i
+            for card_action in range(52):
+                if hand_slice[card_action] > 0:  # Card is in hand
+                    card = self.action_to_card(card_action)
+                    hand.append(card)
+            
+            # Sort by suit first (C=0, D=1, H=2, S=3), then by rank (2=0 to A=12)
+            hand.sort(key=lambda c: (self.SUIT_MAP[c.suit], self.RANK_MAP[c.rank]))
             
             return hand
             
         except Exception as e:
             # Failed to parse hand - return empty list
+            print(f"Error parsing hand for player {player_id}: {e}")
             return []
     
     def validate_move(self, player_id: int, card: Card) -> bool:
@@ -211,5 +196,73 @@ class HeartsGame:
             # OpenSpiel returns are normalized, need to scale appropriately
             return [-int(r * 26) for r in returns]
         return [0, 0, 0, 0]
+    
+    def is_passing_phase(self, player_id: int) -> bool:
+        """
+        Check if we're currently in the passing phase for a given player.
+        
+        The passing phase occurs when:
+        1. Pass direction is 1, 2, or 3 (Left, Across, or Right)
+        2. Player has 13 cards in their hand (initial deal)
+        3. Player hasn't passed any cards yet (passed cards section is empty)
+        """
+        if self._timestep is None:
+            return False
+        
+        try:
+            observation = self.get_observation(player_id)
+            
+            # Check pass direction (first 4 values)
+            pass_direction = observation[0:4]
+            pass_direction_idx = np.argmax(pass_direction) if np.sum(pass_direction) > 0 else 0
+            
+            # Only proceed if pass direction is 1, 2, or 3 (not 0 = No Pass)
+            if pass_direction_idx == 0:
+                return False
+            
+            # Check if player has 13 cards in current hand (indices 160-212)
+            current_hand = observation[160:212]
+            cards_in_hand = int(np.sum(current_hand))
+            
+            # Check if player has passed any cards yet (indices 56-108)
+            passed_cards = observation[56:108]
+            cards_passed = int(np.sum(passed_cards))
+            
+            # Passing phase: pass direction is 1-3, 13 cards in hand, 0 cards passed
+            return pass_direction_idx in [1, 2, 3] and cards_in_hand == 13 and cards_passed == 0
+            
+        except Exception as e:
+            print(f"Error checking passing phase for player {player_id}: {e}")
+            return False
+    
+    def get_pass_direction(self, player_id: int) -> str:
+        """
+        Get the pass direction as a human-readable string.
+        
+        Returns:
+            str: "No Pass", "Left", "Across", or "Right"
+        """
+        if self._timestep is None:
+            return "No Pass"
+        
+        try:
+            observation = self.get_observation(player_id)
+            
+            # Check pass direction (first 4 values)
+            pass_direction = observation[0:4]
+            pass_direction_idx = np.argmax(pass_direction) if np.sum(pass_direction) > 0 else 0
+            
+            direction_map = {
+                0: "No Pass",
+                1: "Left", 
+                2: "Across",
+                3: "Right"
+            }
+            
+            return direction_map.get(pass_direction_idx, "No Pass")
+            
+        except Exception as e:
+            print(f"Error getting pass direction for player {player_id}: {e}")
+            return "No Pass"
 
 

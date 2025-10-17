@@ -22,7 +22,7 @@ class Player(BaseModel):
     """Represents a player in the game"""
     id: int = Field(..., ge=0, le=3)
     name: str
-    hand: List[Card] = []
+    hand: list[Card] = []
     score: int = 0
     round_score: int = 0
     is_ai: bool = True
@@ -47,12 +47,20 @@ class GameState(BaseModel):
     winner: Optional[int] = None
     observation: Optional[List[float]] = None  # 5088-length OpenSpiel observation
     legal_actions: Optional[List[int]] = None  # Legal action indices
+    is_passing_phase: bool = False  # Whether we're in the passing phase
+    pass_direction: Optional[str] = None  # Pass direction: "No Pass", "Left", "Across", "Right"
 
 
 class PlayMoveRequest(BaseModel):
     """Request to play a card"""
     player_id: int = Field(..., ge=0, le=3)
     card: Card
+
+
+class PassCardsRequest(BaseModel):
+    """Request to pass multiple cards during passing phase"""
+    player_id: int = Field(..., ge=0, le=3)
+    cards: list[Card] = Field(..., min_items=3, max_items=3)
 
 
 class PlayMoveResponse(BaseModel):

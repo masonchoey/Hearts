@@ -7,18 +7,11 @@ import Card from './Card';
 import './PlayerHand.css';
 
 const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
-  const { playCard, selectedCard, selectCard, isLoading, gameState } = useGameStore();
+  const { playCard, selectedCard, selectedCards, selectCard, isLoading, gameState, passCards } = useGameStore();
 
   const handleCardClick = (card) => {
     if (!isCurrentPlayer || isLoading) return;
-
-    if (selectedCard?.suit === card.suit && selectedCard?.rank === card.rank) {
-      // If same card clicked, deselect
-      selectCard(null);
-    } else {
-      // Select card
-      selectCard(card);
-    }
+    selectCard(card);
   };
 
   const handlePlayCard = () => {
@@ -30,8 +23,21 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
     playCard(playerId, selectedCard);
   };
 
+  const handlePassCards = () => {
+    if (selectedCards.length !== 3 || !isCurrentPlayer || isLoading) {
+      console.warn('Cannot pass cards:', { selectedCards, isCurrentPlayer, isLoading, currentPlayer: gameState?.current_player });
+      return;
+    }
+    console.log('Attempting to pass cards:', { playerId, cards: selectedCards, currentPlayer: gameState?.current_player });
+    passCards(playerId, selectedCards);
+  };
+
   const isCardSelected = (card) => {
-    return selectedCard?.suit === card.suit && selectedCard?.rank === card.rank;
+    if (gameState?.is_passing_phase) {
+      return selectedCards.some(c => c.suit === card.suit && c.rank === card.rank);
+    } else {
+      return selectedCard?.suit === card.suit && selectedCard?.rank === card.rank;
+    }
   };
 
   return (
@@ -49,7 +55,24 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
         ))}
       </div>
       
-      {isCurrentPlayer && selectedCard && (
+      {isCurrentPlayer && gameState?.is_passing_phase && (
+        <div className="passing-phase-controls">
+          <div className="selected-cards-info">
+            Selected: {selectedCards.length}/3 cards
+          </div>
+          {selectedCards.length === 3 && (
+            <button
+              className="pass-cards-button"
+              onClick={handlePassCards}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Passing...' : 'Pass Cards'}
+            </button>
+          )}
+        </div>
+      )}
+      
+      {isCurrentPlayer && !gameState?.is_passing_phase && selectedCard && (
         <button
           className="play-card-button"
           onClick={handlePlayCard}

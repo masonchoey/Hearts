@@ -68,6 +68,31 @@ export const resetGame = async (gameId) => {
 };
 
 /**
+ * Process AI turns
+ * @param {string} gameId - Game session ID
+ * @returns {Promise} Updated game state
+ */
+export const processAITurns = async (gameId) => {
+  const response = await api.post(`/ai-turns/${gameId}`);
+  return response.data;
+};
+
+/**
+ * Pass 3 cards during passing phase
+ * @param {string} gameId - Game session ID
+ * @param {number} playerId - Player ID (0-3)
+ * @param {Array} cards - Array of 3 card objects [{suit, rank}, ...]
+ * @returns {Promise} Updated game state
+ */
+export const passCards = async (gameId, playerId, cards) => {
+  const response = await api.post(`/pass/${gameId}`, {
+    player_id: playerId,
+    cards: cards,
+  });
+  return response.data; 
+};
+
+/**
  * Delete a game session
  * @param {string} gameId - Game session ID
  * @returns {Promise} Success message

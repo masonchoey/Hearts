@@ -82,4 +82,37 @@
   50% { opacity: 0.4; }
 }
 
+.passing-phase-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.selected-cards-info {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.pass-cards-button {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  border-radius: 30px;
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+  animation: pulse 2s infinite;
+}
+
+.pass-cards-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+}
+
 

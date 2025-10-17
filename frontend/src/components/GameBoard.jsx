@@ -7,6 +7,7 @@ import { useGameStore } from '../hooks/useGameState';
 import PlayerHand from './PlayerHand';
 import TableCenter from './TableCenter';
 import Card from './Card';
+import PassDirectionWidget from './PassDirectionWidget';
 import './GameBoard.css';
 
 const GameBoard = () => {
@@ -51,6 +52,9 @@ const GameBoard = () => {
 
   return (
     <div className="game-board">
+      {/* Pass Direction Widget */}
+      <PassDirectionWidget />
+      
       {/* Debug Toggle */}
       <div className="debug-toggle">
         <label>
