@@ -68,7 +68,17 @@ export const resetGame = async (gameId) => {
 };
 
 /**
- * Process AI turns
+ * Process a single AI move (one card play)
+ * @param {string} gameId - Game session ID
+ * @returns {Promise} Updated game state
+ */
+export const processSingleAIMove = async (gameId) => {
+  const response = await api.post(`/ai-move/${gameId}`);
+  return response.data;
+};
+
+/**
+ * Process AI turns (batch - all at once)
  * @param {string} gameId - Game session ID
  * @returns {Promise} Updated game state
  */
@@ -84,12 +94,30 @@ export const processAITurns = async (gameId) => {
  * @param {Array} cards - Array of 3 card objects [{suit, rank}, ...]
  * @returns {Promise} Updated game state
  */
+// export const passCards = async (gameId, playerId, cards) => {
+//   
+//   const response = await api.post(`/pass/${gameId}`, {
+//     player_id: playerId,
+//     cards: cards,
+//   });
+//   return response.data; 
+// };
 export const passCards = async (gameId, playerId, cards) => {
-  const response = await api.post(`/pass/${gameId}`, {
-    player_id: playerId,
-    cards: cards,
-  });
-  return response.data; 
+  //instead of passing cards, we should "play" all 3 of the cards, to effectively pass them
+  // Map over cards and call API for each one
+  const results = await Promise.all(
+    cards.map(card =>
+      api.post(`/play/${gameId}`, {
+        player_id: playerId,
+        card: card, // single card per request
+      })
+    )
+  );
+
+  // Return the data from each API response
+  console.log('Pass successful, new state:', results.map(res => res.data));
+  const response_list = results.map(res => res.data)
+  return response_list[2];
 };
 
 /**

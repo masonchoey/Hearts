@@ -99,6 +99,11 @@ class GameStateManager:
         if game_state.current_player != player_id:
             raise ValueError(f"Not your turn (current player: {game_state.current_player}, you: {player_id})")
         
+        # Clear previous completed trick if starting a new one
+        if len(game_state.current_trick) == 4:
+            game_state.current_trick = []
+            game_state.tricks_played += 1
+        
         # Validate move
         print(f"CARD PLAYED: {card}")
         if not game.validate_move(player_id, card):
@@ -115,11 +120,6 @@ class GameStateManager:
         
         # Update game state
         game_state.current_trick.append((player_id, card))
-        
-        # Check if trick is complete
-        if len(game_state.current_trick) == 4:
-            # Trick completed, determine winner and update scores
-            self._complete_trick(game_state, game)
         
         # Update current player and legal actions
         if not game.is_terminal():
@@ -200,6 +200,64 @@ class GameStateManager:
         self.game_states[game_id] = game_state
         return game_state
     
+    def process_single_ai_move(self, game_id: str) -> GameState:
+        """
+        Process a single AI move (one card play)
+        Returns the updated game state
+        """
+        game = self.games.get(game_id)
+        game_state = self.game_states.get(game_id)
+        
+        if not game or not game_state:
+            raise ValueError("Game not found")
+        
+        # Only process if it's an AI's turn
+        if game.is_terminal() or not game_state.players[game_state.current_player].is_ai:
+            return game_state
+        
+        # Clear previous completed trick if starting a new one
+        if len(game_state.current_trick) == 4:
+            game_state.current_trick = []
+            game_state.tricks_played += 1
+        
+        player_id = game_state.current_player
+        
+        # Get AI action
+        observation = game.get_observation(player_id)
+        legal_actions = game.get_legal_actions()
+        action = self.ai_model.get_action(observation, legal_actions)
+        
+        # Convert action to card
+        card = game.action_to_card(action)
+        
+        # Apply action
+        game.apply_action(action)
+        game_state.current_trick.append((player_id, card))
+        
+        # Update state
+        if not game.is_terminal():
+            game_state.current_player = game.current_player()
+            game_state.observation = game.get_observation(game_state.current_player).tolist()
+            game_state.legal_actions = game.get_legal_actions()
+            game_state.hearts_broken = game.hearts_broken
+            game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
+            game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
+        else:
+            game_state.game_over = True
+            scores = game.get_scores()
+            for i, player in enumerate(game_state.players):
+                player.score = scores[i]
+            winner_id = min(range(4), key=lambda i: game_state.players[i].score)
+            game_state.winner = winner_id
+        
+        # Update all players' hands
+        if not game.is_terminal():
+            for player in game_state.players:
+                player.hand = game.get_player_hand(player.id)
+        
+        self.game_states[game_id] = game_state
+        return game_state
+    
     def process_ai_turns(self, game_id: str) -> GameState:
         """
         Process AI player turns until it's the human player's turn or trick is complete
@@ -212,6 +270,11 @@ class GameStateManager:
         
         # Process AI turns
         while not game.is_terminal() and game_state.players[game_state.current_player].is_ai:
+            # Clear previous completed trick if starting a new one
+            if len(game_state.current_trick) == 4:
+                game_state.current_trick = []
+                game_state.tricks_played += 1
+            
             player_id = game_state.current_player
             
             # Get AI action
@@ -225,10 +288,6 @@ class GameStateManager:
             # Apply action
             game.apply_action(action)
             game_state.current_trick.append((player_id, card))
-            
-            # Check if trick is complete
-            if len(game_state.current_trick) == 4:
-                self._complete_trick(game_state, game)
             
             # Update state
             if not game.is_terminal():
@@ -254,15 +313,6 @@ class GameStateManager:
         
         self.game_states[game_id] = game_state
         return game_state
-    
-    def _complete_trick(self, game_state: GameState, game: HeartsGame):
-        """Complete a trick and update scores"""
-        # Clear current trick
-        game_state.current_trick = []
-        game_state.tricks_played += 1
-        
-        # Update scores (OpenSpiel handles this internally)
-        # We'll fetch the updated scores when the game is terminal
     
     def reset_game(self, game_id: str) -> GameState:
         """Reset a game to initial state"""

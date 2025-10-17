@@ -40,13 +40,20 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
     }
   };
 
+  const isCardPlayed = (card) => {
+    // Check if this card is in the current trick
+    return gameState?.current_trick?.some(trickCard => 
+      trickCard.suit === card.suit && trickCard.rank === card.rank
+    );
+  };
+
   return (
     <div className="player-hand-container">
       <div className="player-hand">
         {cards.map((card, index) => (
           <div
             key={`${card.suit}-${card.rank}`}
-            className={`card-wrapper ${isCardSelected(card) ? 'selected' : ''} ${!isCurrentPlayer ? 'disabled' : ''}`}
+            className={`card-wrapper ${isCardSelected(card) ? 'selected' : ''} ${isCardPlayed(card) ? 'played' : ''} ${!isCurrentPlayer ? 'disabled' : ''}`}
             onClick={() => handleCardClick(card)}
             style={{ '--card-index': index }}
           >
@@ -60,33 +67,33 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
           <div className="selected-cards-info">
             Selected: {selectedCards.length}/3 cards
           </div>
-          {selectedCards.length === 3 && (
-            <button
-              className="pass-cards-button"
-              onClick={handlePassCards}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Passing...' : 'Pass Cards'}
-            </button>
-          )}
+          <button
+            className="pass-cards-button"
+            onClick={handlePassCards}
+            disabled={isLoading || selectedCards.length !== 3}
+          >
+            {isLoading ? 'Passing...' : 'Pass Cards'}
+          </button>
         </div>
       )}
       
-      {isCurrentPlayer && !gameState?.is_passing_phase && selectedCard && (
-        <button
-          className="play-card-button"
-          onClick={handlePlayCard}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Playing...' : 'Play Card'}
-        </button>
-      )}
-      
-      {!isCurrentPlayer && (
-        <div className="waiting-message">
-          Waiting for other players...
-        </div>
-      )}
+      <div className="player-controls">
+        {!isCurrentPlayer && (
+          <div className="waiting-message">
+            Waiting for other players...
+          </div>
+        )}
+        
+        {isCurrentPlayer && !gameState?.is_passing_phase && (
+          <button
+            className="play-card-button"
+            onClick={handlePlayCard}
+            disabled={isLoading || !selectedCard}
+          >
+            {isLoading ? 'Playing...' : 'Play Card'}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

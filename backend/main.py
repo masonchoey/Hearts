@@ -63,20 +63,17 @@ async def get_state(game_id: str):
 @app.post("/play/{game_id}")
 async def play_move(game_id: str, request: PlayMoveRequest):
     """
-    Process a player's move and trigger AI responses
-    Returns updated game state after all players have played
+    Process a player's move WITHOUT auto-processing AI turns
+    Returns updated game state immediately after the player's move
+    Frontend should call /ai-move endpoint for each AI turn
     """
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail="Game not found")
     
     try:
-        # Process the player's move
+        # Process the player's move only
         updated_state = game_manager.play_card(game_id, request.player_id, request.card)
-        
-        # If it's not game over, process AI moves
-        if not updated_state.game_over:
-            updated_state = game_manager.process_ai_turns(game_id)
         
         return {
             "state": updated_state.dict(),
@@ -110,6 +107,26 @@ async def reset_game(game_id: str):
         return {"state": game_state.dict()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to reset game: {str(e)}")
+
+
+@app.post("/ai-move/{game_id}")
+async def process_single_ai_move(game_id: str):
+    """
+    Process a single AI move (one card play)
+    Returns updated game state after one AI card is played
+    """
+    game_state = game_manager.get_game(game_id)
+    if not game_state:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    try:
+        updated_state = game_manager.process_single_ai_move(game_id)
+        return {
+            "state": updated_state.dict(),
+            "ai_move_processed": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process AI move: {str(e)}")
 
 
 @app.post("/ai-turns/{game_id}")

@@ -11,7 +11,7 @@ import PassDirectionWidget from './PassDirectionWidget';
 import './GameBoard.css';
 
 const GameBoard = () => {
-  const { gameState, error, clearError } = useGameStore();
+  const { gameState, error, clearError, animationDelay, setAnimationDelay } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
 
   if (!gameState) {
@@ -21,8 +21,8 @@ const GameBoard = () => {
   const players = gameState.players || [];
   const humanPlayer = players[0];
   const topPlayer = players[2];
-  const leftPlayer = players[3];
-  const rightPlayer = players[1];
+  const leftPlayer = players[1];
+  const rightPlayer = players[3];
 
   // Helper function to render AI hands
   const renderAIHand = (player, orientation = 'horizontal') => {
@@ -55,16 +55,35 @@ const GameBoard = () => {
       {/* Pass Direction Widget */}
       <PassDirectionWidget />
       
-      {/* Debug Toggle */}
-      <div className="debug-toggle">
-        <label>
-          <input
-            type="checkbox"
-            checked={debugMode}
-            onChange={(e) => setDebugMode(e.target.checked)}
-          />
-          <span>Debug: Show AI Cards</span>
-        </label>
+      {/* Controls Panel */}
+      <div className="game-controls">
+        {/* Debug Toggle */}
+        <div className="debug-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(e) => setDebugMode(e.target.checked)}
+            />
+            <span>Debug: Show AI Cards</span>
+          </label>
+        </div>
+
+        {/* Animation Speed Slider */}
+        <div className="animation-speed-control">
+          <label>
+            <span>AI Speed: {(animationDelay / 1000).toFixed(1)}s</span>
+            <input
+              type="range"
+              min="200"
+              max="2000"
+              step="100"
+              value={animationDelay}
+              onChange={(e) => setAnimationDelay(Number(e.target.value))}
+              className="speed-slider"
+            />
+          </label>
+        </div>
       </div>
 
       {error && (

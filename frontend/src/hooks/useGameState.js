@@ -2,7 +2,7 @@
  * Game State Management using Zustand
  */
 import { create } from 'zustand';
-import { startGame, getState, playMove, resetGame, processAITurns, passCards } from '../api/backend';
+import { startGame, getState, playMove, resetGame, processAITurns, processSingleAIMove, passCards } from '../api/backend';
 
 export const useGameStore = create((set, get) => ({
   // State
@@ -12,6 +12,7 @@ export const useGameStore = create((set, get) => ({
   error: null,
   selectedCard: null,
   selectedCards: [], // For passing phase - array of up to 3 cards
+  animationDelay: 200, // Default 1 second (in milliseconds)
 
   // Actions
   startNewGame: async () => {
@@ -24,6 +25,9 @@ export const useGameStore = create((set, get) => ({
         isLoading: false,
         selectedCards: [],
       });
+      
+      // If AI goes first, trigger AI moves
+      get().processAIMovesWithDelay();
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
@@ -61,11 +65,54 @@ export const useGameStore = create((set, get) => ({
         isLoading: false,
         selectedCard: null,
       });
+      
+      // Trigger AI moves processing with animation delays
+      get().processAIMovesWithDelay();
     } catch (error) {
       console.error('Play card error:', error.response?.data || error);
       const errorMsg = error.response?.data?.detail || error.message;
       set({ error: errorMsg, isLoading: false });
     }
+  },
+
+  processAIMovesWithDelay: async () => {
+    const { gameId, gameState, isLoading, animationDelay } = get();
+    if (!gameId || !gameState || isLoading) return;
+    
+    // Check if it's an AI's turn
+    const currentPlayer = gameState.players[gameState.current_player];
+    if (!currentPlayer?.is_ai || gameState.game_over) {
+      //clear the completed trick
+      if (gameState.current_trick?.length === 4) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        set({ gameState: { ...gameState, current_trick: [] } });
+      }
+      return;
+    }
+
+    // If there's a completed trick (4 cards), add extra delay before clearing it
+    if (gameState.current_trick?.length === 4) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    // Wait for animation delay (user-configurable)
+    await new Promise(resolve => setTimeout(resolve, animationDelay));
+
+    // Process one AI move
+    try {
+      const data = await processSingleAIMove(gameId);
+      set({ gameState: data.state });
+      
+      // Recursively process next AI move if needed
+      get().processAIMovesWithDelay();
+    } catch (error) {
+      console.error('AI move error:', error);
+      set({ error: error.message });
+    }
+  },
+
+  setAnimationDelay: (delay) => {
+    set({ animationDelay: delay });
   },
 
   resetCurrentGame: async () => {
@@ -81,6 +128,9 @@ export const useGameStore = create((set, get) => ({
         selectedCard: null,
         selectedCards: [],
       });
+      
+      // If AI goes first, trigger AI moves
+      get().processAIMovesWithDelay();
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
@@ -115,7 +165,6 @@ export const useGameStore = create((set, get) => ({
     console.log('Passing cards:', { playerId, cards });
     set({ isLoading: true, error: null });
     try {
-      //instead of passing cards, we should "play" all 3 of the cards, to effectively pass them
       const data = await passCards(gameId, playerId, cards);
       console.log('Pass successful, new state:', data.state);
       set({
@@ -123,6 +172,9 @@ export const useGameStore = create((set, get) => ({
         isLoading: false,
         selectedCards: [],
       });
+      
+      // Trigger AI moves processing with animation delays
+      get().processAIMovesWithDelay();
     } catch (error) {
       console.error('Pass cards error:', error.response?.data || error);
       const errorMsg = error.response?.data?.detail || error.message;
