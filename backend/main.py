@@ -53,10 +53,18 @@ async def start_game():
 async def get_state(game_id: str):
     """
     Get current game state for a given game ID
+    Ensures is_passing_phase is up-to-date
     """
     game_state = game_manager.get_game(game_id)
     if not game_state:
         raise HTTPException(status_code=404, detail="Game not found")
+    
+    # Refresh is_passing_phase from the actual game state
+    game = game_manager.games.get(game_id)
+    if game and not game.is_terminal():
+        game_state.is_passing_phase = game.is_passing_phase(0)
+        game_state.pass_direction = game.get_pass_direction(0)
+    
     return {"state": game_state.dict()}
 
 
@@ -83,18 +91,6 @@ async def play_move(game_id: str, request: PlayMoveRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process move: {str(e)}")
-
-
-@app.post("/pass/{game_id}")
-async def pass_cards(game_id: str, request: PassCardsRequest):
-    """Pass 3 cards during the passing phase"""
-    try:
-        game_state = game_manager.pass_cards(game_id, request.player_id, request.cards)
-        return {"state": game_state.dict()}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to pass cards: {str(e)}")
 
 
 @app.post("/reset/{game_id}")

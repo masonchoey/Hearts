@@ -11,7 +11,7 @@ import PassDirectionWidget from './PassDirectionWidget';
 import './GameBoard.css';
 
 const GameBoard = () => {
-  const { gameState, error, clearError, animationDelay, setAnimationDelay } = useGameStore();
+  const { gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
 
   if (!gameState) {
@@ -26,7 +26,6 @@ const GameBoard = () => {
 
   // Helper function to render AI hands
   const renderAIHand = (player, orientation = 'horizontal') => {
-    console.log('renderAIHand', player, orientation, debugMode);
     if (debugMode && player?.hand) {
       return (
         <div className={`ai-hand horizontal debug-mode`}>
@@ -39,7 +38,7 @@ const GameBoard = () => {
       );
     } else {
       // Show card backs - backend now sends all players' hands
-      const cardCount = player?.hand?.length || 13;
+      const cardCount = player?.hand?.length;
       return (
         <div className={`ai-hand ${orientation === 'vertical' ? 'vertical' : ''}`}>
           {Array(cardCount).fill(0).map((_, i) => (
@@ -55,8 +54,8 @@ const GameBoard = () => {
       {/* Pass Direction Widget */}
       <PassDirectionWidget />
       
-      {/* Controls Panel */}
-      <div className="game-controls">
+      {/* Bottom Left Controls Panel */}
+      <div className="game-controls-bottom-left">
         {/* Debug Toggle */}
         <div className="debug-toggle">
           <label>
@@ -72,18 +71,32 @@ const GameBoard = () => {
         {/* Animation Speed Slider */}
         <div className="animation-speed-control">
           <label>
-            <span>AI Speed: {(animationDelay / 1000).toFixed(1)}s</span>
+            <span>Delay Between AI Moves: {(animationDelay / 1000).toFixed(2)}s</span>
             <input
               type="range"
-              min="200"
-              max="2000"
-              step="100"
+              min="0"
+              max="500"
+              step="50"
               value={animationDelay}
               onChange={(e) => setAnimationDelay(Number(e.target.value))}
               className="speed-slider"
             />
           </label>
         </div>
+      </div>
+
+      {/* Top Right Controls Panel */}
+      <div className="game-controls-top-right">
+        {/* Show Game Over Button - appears when game is over but modal is hidden */}
+        {gameState.game_over && !showGameOverModal && (
+          <button 
+            className="show-game-over-button"
+            onClick={showGameOverModalNow}
+            aria-label="Show game over results"
+          >
+            Show Results
+          </button>
+        )}
       </div>
 
       {error && (
@@ -121,7 +134,10 @@ const GameBoard = () => {
       </div>
 
       {/* Center Table */}
-      <TableCenter trick={gameState.current_trick || []} />
+      <TableCenter 
+        trick={gameState.current_trick || []} 
+        isPassingPhase={gameState.is_passing_phase}
+      />
 
       {/* Bottom Player (Human) */}
       <div className="player-area player-bottom">
@@ -137,9 +153,16 @@ const GameBoard = () => {
       </div>
 
       {/* Game Over Modal */}
-      {gameState.game_over && (
+      {gameState.game_over && showGameOverModal && (
         <div className="game-over-modal">
           <div className="modal-content">
+            <button 
+              className="modal-close-button"
+              onClick={hideGameOverModal}
+              aria-label="Close game over modal"
+            >
+              ✕
+            </button>
             <h2>Game Over!</h2>
             <div className="final-scores">
               {players.map((player) => (

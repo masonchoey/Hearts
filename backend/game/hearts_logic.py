@@ -94,8 +94,9 @@ class HeartsGame:
         
         # Update hearts_broken based on the action (if it's a heart)
         # Hearts have suit=2, so action % 4 == 2
-        if action % 4 == 2:
-            self.hearts_broken = True
+        if not self.is_passing_phase(0):
+            if action % 4 == 2:
+                self.hearts_broken = True
         
     def card_to_action(self, card: Card) -> int:
         """
@@ -140,14 +141,9 @@ class HeartsGame:
             # Get observation vector for this player
             observation = self.get_observation(player_id)
             
-            # First check current hand (indices 160-212)
-            current_hand_slice = observation[160:212]
-            
-            # If current hand is empty (all zeros), use dealt hand (indices 4-56)
-            if np.sum(current_hand_slice) == 0:
-                hand_slice = observation[4:56]
-            else:
-                hand_slice = current_hand_slice
+            # Use current hand (indices 160-212)
+            # This represents the cards currently in the player's hand
+            hand_slice = observation[160:212]
             
             # Convert the one-hot encoding to Card objects
             # hand_slice has 52 values, one for each possible card
@@ -194,17 +190,19 @@ class HeartsGame:
             returns = self.get_returns()
             # Convert returns (negative) to positive scores
             # OpenSpiel returns are normalized, need to scale appropriately
-            return [-int(r * 26) for r in returns]
+            return [26-int(r) for r in returns]
         return [0, 0, 0, 0]
     
     def is_passing_phase(self, player_id: int) -> bool:
         """
         Check if we're currently in the passing phase for a given player.
         
-        The passing phase occurs when:
+        The passing phase occurs at the start of the game and when:
         1. Pass direction is 1, 2, or 3 (Left, Across, or Right)
         2. Player has 13 cards in their hand (initial deal)
         3. Player hasn't passed any cards yet (passed cards section is empty)
+        4. Player hasn't received any cards yet (received cards section is empty)
+        5. History of tricks is empty
         """
         if self._timestep is None:
             return False
@@ -214,22 +212,25 @@ class HeartsGame:
             
             # Check pass direction (first 4 values)
             pass_direction = observation[0:4]
-            pass_direction_idx = np.argmax(pass_direction) if np.sum(pass_direction) > 0 else 0
             
             # Only proceed if pass direction is 1, 2, or 3 (not 0 = No Pass)
-            if pass_direction_idx == 0:
+            if pass_direction[0] == 1:
                 return False
-            
-            # Check if player has 13 cards in current hand (indices 160-212)
-            current_hand = observation[160:212]
-            cards_in_hand = int(np.sum(current_hand))
             
             # Check if player has passed any cards yet (indices 56-108)
             passed_cards = observation[56:108]
             cards_passed = int(np.sum(passed_cards))
+
+            #Check if player has received any cards yet (indices 108-160)
+            received_cards = observation[108:160]
+            cards_received = int(np.sum(received_cards))
+
+            # Check if history of tricks is empty (indices 356-5087)
+            trick_history = observation[356:5087]
+            history_of_tricks = int(np.sum(trick_history))
             
-            # Passing phase: pass direction is 1-3, 13 cards in hand, 0 cards passed
-            return pass_direction_idx in [1, 2, 3] and cards_in_hand == 13 and cards_passed == 0
+            # Passing phase: < 3 cards passed or < 3 cards received
+            return (cards_passed < 3 or cards_received < 3) or history_of_tricks == 0
             
         except Exception as e:
             print(f"Error checking passing phase for player {player_id}: {e}")

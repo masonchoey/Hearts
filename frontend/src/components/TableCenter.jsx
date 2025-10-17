@@ -5,14 +5,14 @@
 import Card from './Card';
 import './TableCenter.css';
 
-const TableCenter = ({ trick }) => {
+const TableCenter = ({ trick, isPassingPhase }) => {
   // Map player positions for display
   const getCardPosition = (playerId) => {
     const positions = {
       0: 'bottom',
-      1: 'right',
+      3: 'right',
       2: 'top',
-      3: 'left'
+      1: 'left'
     };
     return positions[playerId] || 'bottom';
   };
@@ -20,7 +20,7 @@ const TableCenter = ({ trick }) => {
   return (
     <div className="table-center">
       <div className="table-surface">
-        {trick && trick.length > 0 ? (
+        {trick && trick.length > 0 && !isPassingPhase ? (
           <div className="trick-cards">
             {trick.map(([playerId, card], index) => (
               <div

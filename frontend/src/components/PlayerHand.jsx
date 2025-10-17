@@ -2,6 +2,7 @@
  * Player Hand Component
  * Displays clickable cards for the human player
  */
+import { useEffect } from 'react';
 import { useGameStore } from '../hooks/useGameState';
 import Card from './Card';
 import './PlayerHand.css';
@@ -46,6 +47,32 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
       trickCard.suit === card.suit && trickCard.rank === card.rank
     );
   };
+
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // Only handle spacebar when it's the player's turn and not loading
+      if (event.code === 'Space' && isCurrentPlayer && !isLoading) {
+        event.preventDefault(); // Prevent page scroll
+        
+        if (gameState?.is_passing_phase) {
+          // In passing phase, spacebar passes the selected cards
+          handlePassCards();
+        } else {
+          // In normal play, spacebar plays the selected card
+          handlePlayCard();
+        }
+      }
+    };
+
+    // Add event listener
+    document.addEventListener('keydown', handleKeyPress);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isCurrentPlayer, isLoading, gameState?.is_passing_phase, selectedCard, selectedCards]);
 
   return (
     <div className="player-hand-container">

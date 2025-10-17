@@ -149,7 +149,36 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   color: white;
   text-align: center;
-  min-width: 400px;
+  width: 400px;
+  position: relative;
+}
+
+.modal-close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.modal-close-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.modal-close-button:active {
+  transform: scale(0.95);
 }
 
 .modal-content h2 {
@@ -196,8 +225,19 @@
 }
 
 /* Debug Toggle */
-/* Game Controls Panel */
-.game-controls {
+/* Game Controls Panel - Bottom Left */
+.game-controls-bottom-left {
+  position: absolute;
+  bottom: 4rem;
+  left:  -1.5rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Game Controls Panel - Top Right */
+.game-controls-top-right {
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -295,6 +335,30 @@
 
 .speed-slider::-moz-range-thumb:hover {
   background: #5dade2;
+}
+
+/* Show Game Over Button */
+.show-game-over-button {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.show-game-over-button:hover {
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.5);
+  transform: translateY(-2px);
+}
+
+.show-game-over-button:active {
+  transform: translateY(0);
 }
 
 /* AI Hand in Debug Mode */

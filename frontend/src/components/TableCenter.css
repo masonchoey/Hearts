@@ -42,7 +42,7 @@
 
 .trick-card {
   position: absolute;
-  animation: playCard 0.5s ease calc(var(--card-index) * 0.15s) both;
+  animation: playCard 0.5s ease both;
 }
 
 @keyframes playCard {

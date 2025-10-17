@@ -102,7 +102,8 @@ class GameStateManager:
         # Clear previous completed trick if starting a new one
         if len(game_state.current_trick) == 4:
             game_state.current_trick = []
-            game_state.tricks_played += 1
+            if not game.is_passing_phase(0):
+                game_state.tricks_played += 1
         
         # Validate move
         print(f"CARD PLAYED: {card}")
@@ -129,73 +130,21 @@ class GameStateManager:
             game_state.hearts_broken = game.hearts_broken
             game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
             game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
+            # Update human player's hand
+            if player_id == 0:
+                game_state.players[0].hand = game.get_player_hand(0)
         else:
             game_state.game_over = True
+            game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
             scores = game.get_scores()
             for i, player in enumerate(game_state.players):
                 player.score = scores[i]
             # Determine winner (lowest score)
             winner_id = min(range(4), key=lambda i: game_state.players[i].score)
             game_state.winner = winner_id
-        
-        # Update all players' hands
-        if not game.is_terminal():
-            if player_id == 0:
-                game_state.players[0].hand = game.get_player_hand(0)
-        
-        self.game_states[game_id] = game_state
-        return game_state
-    
-    def pass_cards(self, game_id: str, player_id: int, cards: list[Card]) -> GameState:
-        """
-        Process passing of 3 cards during the passing phase
-        """
-        game = self.games.get(game_id)
-        game_state = self.game_states.get(game_id)
-        
-        if not game or not game_state:
-            raise ValueError("Game not found")
-        
-        if not game_state.is_passing_phase:
-            raise ValueError("Not in passing phase")
-        
-        if game_state.current_player != player_id:
-            raise ValueError(f"Not your turn (current player: {game_state.current_player}, you: {player_id})")
-        
-        if len(cards) != 3:
-            raise ValueError("Must pass exactly 3 cards")
-        
-        # Validate that all cards are in the player's hand
-        player_hand = game.get_player_hand(player_id)
-        for card in cards:
-            if card not in player_hand:
-                raise ValueError(f"Card {card} not in player's hand")
-        
-        # Apply each card as a pass action
-        for card in cards:
-            action = game.card_to_action(card)
-            game.apply_action(action)
-        
-        # Update game state
-        if not game.is_terminal():
-            game_state.current_player = game.current_player()
-            game_state.observation = game.get_observation(game_state.current_player).tolist()
-            game_state.legal_actions = game.get_legal_actions()
-            game_state.hearts_broken = game.hearts_broken
-            game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
-            game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
-        else:
-            game_state.game_over = True
-            scores = game.get_scores()
-            for i, player in enumerate(game_state.players):
-                player.score = scores[i]
-            winner_id = min(range(4), key=lambda i: game_state.players[i].score)
-            game_state.winner = winner_id
-        
-        # Update all players' hands
-        if not game.is_terminal():
+            # Clear all players' hands when game ends
             for player in game_state.players:
-                player.hand = game.get_player_hand(player.id)
+                player.hand = []
         
         self.game_states[game_id] = game_state
         return game_state
@@ -218,7 +167,8 @@ class GameStateManager:
         # Clear previous completed trick if starting a new one
         if len(game_state.current_trick) == 4:
             game_state.current_trick = []
-            game_state.tricks_played += 1
+            if not game.is_passing_phase(0):
+                game_state.tricks_played += 1
         
         player_id = game_state.current_player
         
@@ -242,18 +192,20 @@ class GameStateManager:
             game_state.hearts_broken = game.hearts_broken
             game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
             game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
+            # Update all players' hands
+            for player in game_state.players:
+                player.hand = game.get_player_hand(player.id)
         else:
             game_state.game_over = True
+            game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
             scores = game.get_scores()
             for i, player in enumerate(game_state.players):
                 player.score = scores[i]
             winner_id = min(range(4), key=lambda i: game_state.players[i].score)
             game_state.winner = winner_id
-        
-        # Update all players' hands
-        if not game.is_terminal():
+            # Clear all players' hands when game ends
             for player in game_state.players:
-                player.hand = game.get_player_hand(player.id)
+                player.hand = []
         
         self.game_states[game_id] = game_state
         return game_state
@@ -273,7 +225,8 @@ class GameStateManager:
             # Clear previous completed trick if starting a new one
             if len(game_state.current_trick) == 4:
                 game_state.current_trick = []
-                game_state.tricks_played += 1
+                if not game.is_passing_phase(0):
+                    game_state.tricks_played += 1
             
             player_id = game_state.current_player
             
@@ -297,19 +250,21 @@ class GameStateManager:
                 game_state.hearts_broken = game.hearts_broken
                 game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
                 game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
+                # Update all players' hands
+                for player in game_state.players:
+                    player.hand = game.get_player_hand(player.id)
             else:
                 game_state.game_over = True
+                game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
                 scores = game.get_scores()
                 for i, player in enumerate(game_state.players):
                     player.score = scores[i]
                 winner_id = min(range(4), key=lambda i: game_state.players[i].score)
                 game_state.winner = winner_id
+                # Clear all players' hands when game ends
+                for player in game_state.players:
+                    player.hand = []
                 break
-        
-        # Update all players' hands
-        if not game.is_terminal():
-            for player in game_state.players:
-                player.hand = game.get_player_hand(player.id)
         
         self.game_states[game_id] = game_state
         return game_state

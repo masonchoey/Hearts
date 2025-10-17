@@ -13,6 +13,7 @@ export const useGameStore = create((set, get) => ({
   selectedCard: null,
   selectedCards: [], // For passing phase - array of up to 3 cards
   animationDelay: 200, // Default 1 second (in milliseconds)
+  showGameOverModal: false, // Control visibility of game over modal
 
   // Actions
   startNewGame: async () => {
@@ -68,6 +69,11 @@ export const useGameStore = create((set, get) => ({
       
       // Trigger AI moves processing with animation delays
       get().processAIMovesWithDelay();
+      
+      // Check if game is over and schedule modal display
+      if (data.state.game_over) {
+        get().scheduleGameOverModal();
+      }
     } catch (error) {
       console.error('Play card error:', error.response?.data || error);
       const errorMsg = error.response?.data?.detail || error.message;
@@ -84,7 +90,7 @@ export const useGameStore = create((set, get) => ({
     if (!currentPlayer?.is_ai || gameState.game_over) {
       //clear the completed trick
       if (gameState.current_trick?.length === 4) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, Math.max(500, Math.min(animationDelay*7, 1500))));
         set({ gameState: { ...gameState, current_trick: [] } });
       }
       return;
@@ -92,11 +98,15 @@ export const useGameStore = create((set, get) => ({
 
     // If there's a completed trick (4 cards), add extra delay before clearing it
     if (gameState.current_trick?.length === 4) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, Math.max(500, Math.min(animationDelay*7, 1500))));
     }
 
     // Wait for animation delay (user-configurable)
-    await new Promise(resolve => setTimeout(resolve, animationDelay));
+    if (gameState.is_passing_phase) {
+      await new Promise(resolve => setTimeout(resolve, animationDelay/2));
+    } else {
+      await new Promise(resolve => setTimeout(resolve, animationDelay));
+    }
 
     // Process one AI move
     try {
@@ -105,6 +115,11 @@ export const useGameStore = create((set, get) => ({
       
       // Recursively process next AI move if needed
       get().processAIMovesWithDelay();
+      
+      // Check if game is over and schedule modal display
+      if (data.state.game_over) {
+        get().scheduleGameOverModal();
+      }
     } catch (error) {
       console.error('AI move error:', error);
       set({ error: error.message });
@@ -127,6 +142,7 @@ export const useGameStore = create((set, get) => ({
         isLoading: false,
         selectedCard: null,
         selectedCards: [],
+        showGameOverModal: false,
       });
       
       // If AI goes first, trigger AI moves
@@ -208,6 +224,21 @@ export const useGameStore = create((set, get) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  scheduleGameOverModal: () => {
+    // Wait 2 seconds before showing the game over modal
+    setTimeout(() => {
+      set({ showGameOverModal: true });
+    }, 2000);
+  },
+
+  hideGameOverModal: () => {
+    set({ showGameOverModal: false });
+  },
+
+  showGameOverModalNow: () => {
+    set({ showGameOverModal: true });
   },
 }));
 
