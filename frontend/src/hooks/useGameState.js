@@ -2,7 +2,7 @@
  * Game State Management using Zustand
  */
 import { create } from 'zustand';
-import { startGame, getState, playMove, resetGame, processAITurns, processSingleAIMove, passCards } from '../api/backend';
+import { startGame, getState, playMove, resetGame, processAITurns, passCards } from '../api/backend';
 
 export const useGameStore = create((set, get) => ({
   // State
@@ -27,8 +27,8 @@ export const useGameStore = create((set, get) => ({
         selectedCards: [],
       });
       
-      // If AI goes first, trigger AI moves
-      get().processAIMovesWithDelay();
+      // No need to process AI moves - the gym environment
+      // automatically advances to the human's turn
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
@@ -61,14 +61,14 @@ export const useGameStore = create((set, get) => ({
     try {
       const data = await playMove(gameId, playerId, card);
       console.log('Move successful, new state:', data.state);
+      
+      // The gym environment automatically processes all AI moves
+      // So the returned state already has it back to the human's turn
       set({
         gameState: data.state,
         isLoading: false,
         selectedCard: null,
       });
-      
-      // Trigger AI moves processing with animation delays
-      get().processAIMovesWithDelay();
       
       // Check if game is over and schedule modal display
       if (data.state.game_over) {
@@ -82,47 +82,19 @@ export const useGameStore = create((set, get) => ({
   },
 
   processAIMovesWithDelay: async () => {
-    const { gameId, gameState, isLoading, animationDelay } = get();
-    if (!gameId || !gameState || isLoading) return;
+    // NOTE: The gym environment automatically processes all AI moves
+    // when playCard() is called, so AI moves don't need to be processed separately.
+    // This function is kept for backward compatibility but only handles
+    // trick clearing delays for better UX.
     
-    // Check if it's an AI's turn
-    const currentPlayer = gameState.players[gameState.current_player];
-    if (!currentPlayer?.is_ai || gameState.game_over) {
-      //clear the completed trick
-      if (gameState.current_trick?.length === 4) {
-        await new Promise(resolve => setTimeout(resolve, Math.max(500, Math.min(animationDelay*7, 1500))));
-        set({ gameState: { ...gameState, current_trick: [] } });
-      }
-      return;
-    }
-
-    // If there's a completed trick (4 cards), add extra delay before clearing it
+    const { gameState, animationDelay } = get();
+    if (!gameState || gameState.game_over) return;
+    
+    // Clear completed tricks after a delay for better visual feedback
     if (gameState.current_trick?.length === 4) {
-      await new Promise(resolve => setTimeout(resolve, Math.max(500, Math.min(animationDelay*7, 1500))));
-    }
-
-    // Wait for animation delay (user-configurable)
-    if (gameState.is_passing_phase) {
-      await new Promise(resolve => setTimeout(resolve, animationDelay/2));
-    } else {
-      await new Promise(resolve => setTimeout(resolve, animationDelay));
-    }
-
-    // Process one AI move
-    try {
-      const data = await processSingleAIMove(gameId);
-      set({ gameState: data.state });
-      
-      // Recursively process next AI move if needed
-      get().processAIMovesWithDelay();
-      
-      // Check if game is over and schedule modal display
-      if (data.state.game_over) {
-        get().scheduleGameOverModal();
-      }
-    } catch (error) {
-      console.error('AI move error:', error);
-      set({ error: error.message });
+      const delay = Math.max(500, Math.min(animationDelay * 7, 1500));
+      await new Promise(resolve => setTimeout(resolve, delay));
+      set({ gameState: { ...gameState, current_trick: [] } });
     }
   },
 
@@ -145,8 +117,8 @@ export const useGameStore = create((set, get) => ({
         showGameOverModal: false,
       });
       
-      // If AI goes first, trigger AI moves
-      get().processAIMovesWithDelay();
+      // No need to process AI moves - the gym environment
+      // automatically advances to the human's turn
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
@@ -183,14 +155,14 @@ export const useGameStore = create((set, get) => ({
     try {
       const data = await passCards(gameId, playerId, cards);
       console.log('Pass successful, new state:', data.state);
+      
+      // The gym environment automatically processes all AI moves (including AI passing)
+      // So the returned state already has it back to the human's turn
       set({
         gameState: data.state,
         isLoading: false,
         selectedCards: [],
       });
-      
-      // Trigger AI moves processing with animation delays
-      get().processAIMovesWithDelay();
     } catch (error) {
       console.error('Pass cards error:', error.response?.data || error);
       const errorMsg = error.response?.data?.detail || error.message;

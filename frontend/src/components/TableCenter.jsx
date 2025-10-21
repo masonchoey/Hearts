@@ -1,7 +1,8 @@
 /**
  * Table Center Component
- * Displays cards played in the current trick
+ * Displays cards played in the current trick with animations
  */
+import { useState, useEffect, useRef } from 'react';
 import Card from './Card';
 import './TableCenter.css';
 

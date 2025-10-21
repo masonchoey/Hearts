@@ -1,0 +1,595 @@
+{
+  "simulation_info": {
+    "timestamp": "20251017_164325",
+    "total_games": 100
+  },
+  "analysis": {
+    "total_games": 100,
+    "expected_points_per_player": 6.5,
+    "rl_agent": {
+      "avg_score": 5.91,
+      "std_score": 6.435984773133014,
+      "best_score": 0.0,
+      "worst_score": 26.0,
+      "avg_rank": 2.26,
+      "wins": 32,
+      "win_rate": 0.32,
+      "invalid_moves": 0,
+      "total_moves": 6100,
+      "invalid_move_rate": 0.0,
+      "rank_distribution": {
+        "rank_1": 32,
+        "rank_2": 29,
+        "rank_3": 20,
+        "rank_4": 19
+      },
+      "cumulative_percentage": 90.92307692307692,
+      "total_points_earned": 591.0,
+      "total_expected_points": 650.0,
+      "percentage_scores": {
+        "avg_percentage": 90.92307692307693,
+        "std_percentage": 99.0151503558925,
+        "best_percentage": 0.0,
+        "worst_percentage": 400.0,
+        "all_percentages": [
+          0.0,
+          0.0,
+          200.0,
+          46.15384615384615,
+          46.15384615384615,
+          0.0,
+          61.53846153846154,
+          61.53846153846154,
+          0.0,
+          15.384615384615385,
+          76.92307692307693,
+          61.53846153846154,
+          200.0,
+          323.0769230769231,
+          0.0,
+          0.0,
+          15.384615384615385,
+          76.92307692307693,
+          169.23076923076923,
+          200.0,
+          0.0,
+          15.384615384615385,
+          61.53846153846154,
+          30.76923076923077,
+          61.53846153846154,
+          15.384615384615385,
+          76.92307692307693,
+          123.07692307692308,
+          92.3076923076923,
+          61.53846153846154,
+          184.6153846153846,
+          61.53846153846154,
+          169.23076923076923,
+          30.76923076923077,
+          323.0769230769231,
+          92.3076923076923,
+          0.0,
+          0.0,
+          200.0,
+          246.15384615384616,
+          107.6923076923077,
+          215.3846153846154,
+          0.0,
+          15.384615384615385,
+          0.0,
+          0.0,
+          61.53846153846154,
+          323.0769230769231,
+          61.53846153846154,
+          61.53846153846154,
+          30.76923076923077,
+          107.6923076923077,
+          46.15384615384615,
+          76.92307692307693,
+          107.6923076923077,
+          0.0,
+          0.0,
+          92.3076923076923,
+          15.384615384615385,
+          0.0,
+          276.9230769230769,
+          30.76923076923077,
+          15.384615384615385,
+          0.0,
+          261.53846153846155,
+          0.0,
+          215.3846153846154,
+          76.92307692307693,
+          323.0769230769231,
+          0.0,
+          15.384615384615385,
+          123.07692307692308,
+          15.384615384615385,
+          276.9230769230769,
+          76.92307692307693,
+          61.53846153846154,
+          230.76923076923075,
+          200.0,
+          76.92307692307693,
+          200.0,
+          0.0,
+          153.84615384615387,
+          307.69230769230774,
+          0.0,
+          61.53846153846154,
+          30.76923076923077,
+          400.0,
+          15.384615384615385,
+          261.53846153846155,
+          0.0,
+          0.0,
+          15.384615384615385,
+          0.0,
+          215.3846153846154,
+          92.3076923076923,
+          76.92307692307693,
+          107.6923076923077,
+          15.384615384615385,
+          0.0,
+          138.46153846153845
+        ]
+      }
+    },
+    "bot_performance": {}
+  },
+  "individual_games": [
+    {
+      "timestamp": "2025-10-17T16:43:14.853896",
+      "player_scores": [
+        0.0,
+        1.0,
+        20.0,
+        5.0
+      ],
+      "player_percentages": [
+        0.0,
+        15.384615384615385,
+        307.69230769230774,
+        76.92307692307693
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0
+      ],
+      "rl_agent_score": 0.0,
+      "rl_agent_percentage": 0.0,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        1.0,
+        20.0,
+        5.0
+      ],
+      "bot_percentages": [
+        15.384615384615385,
+        307.69230769230774,
+        76.92307692307693
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 64,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:14.961701",
+      "player_scores": [
+        0.0,
+        5.0,
+        13.0,
+        8.0
+      ],
+      "player_percentages": [
+        0.0,
+        76.92307692307693,
+        200.0,
+        123.07692307692308
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0
+      ],
+      "rl_agent_score": 0.0,
+      "rl_agent_percentage": 0.0,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        5.0,
+        13.0,
+        8.0
+      ],
+      "bot_percentages": [
+        76.92307692307693,
+        200.0,
+        123.07692307692308
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 128,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.070172",
+      "player_scores": [
+        13.0,
+        11.0,
+        0.0,
+        2.0
+      ],
+      "player_percentages": [
+        200.0,
+        169.23076923076923,
+        0.0,
+        30.76923076923077
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 2,
+      "winners": [
+        2
+      ],
+      "rl_agent_score": 13.0,
+      "rl_agent_percentage": 200.0,
+      "rl_agent_rank": 4,
+      "bot_scores": [
+        11.0,
+        0.0,
+        2.0
+      ],
+      "bot_percentages": [
+        169.23076923076923,
+        0.0,
+        30.76923076923077
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 192,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.157194",
+      "player_scores": [
+        3.0,
+        15.0,
+        2.0,
+        6.0
+      ],
+      "player_percentages": [
+        46.15384615384615,
+        230.76923076923075,
+        30.76923076923077,
+        92.3076923076923
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 2,
+      "winners": [
+        2
+      ],
+      "rl_agent_score": 3.0,
+      "rl_agent_percentage": 46.15384615384615,
+      "rl_agent_rank": 2,
+      "bot_scores": [
+        15.0,
+        2.0,
+        6.0
+      ],
+      "bot_percentages": [
+        230.76923076923075,
+        30.76923076923077,
+        92.3076923076923
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 52,
+      "game_length": 52,
+      "rl_decisions": 52,
+      "debug_info": {
+        "total_rl_moves": 244,
+        "rl_decision_count": 52
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.264513",
+      "player_scores": [
+        3.0,
+        9.0,
+        13.0,
+        1.0
+      ],
+      "player_percentages": [
+        46.15384615384615,
+        138.46153846153845,
+        200.0,
+        15.384615384615385
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 3,
+      "winners": [
+        3
+      ],
+      "rl_agent_score": 3.0,
+      "rl_agent_percentage": 46.15384615384615,
+      "rl_agent_rank": 2,
+      "bot_scores": [
+        9.0,
+        13.0,
+        1.0
+      ],
+      "bot_percentages": [
+        138.46153846153845,
+        200.0,
+        15.384615384615385
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 308,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.370859",
+      "player_scores": [
+        0.0,
+        3.0,
+        10.0,
+        13.0
+      ],
+      "player_percentages": [
+        0.0,
+        46.15384615384615,
+        153.84615384615387,
+        200.0
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0
+      ],
+      "rl_agent_score": 0.0,
+      "rl_agent_percentage": 0.0,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        3.0,
+        10.0,
+        13.0
+      ],
+      "bot_percentages": [
+        46.15384615384615,
+        153.84615384615387,
+        200.0
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 372,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.477203",
+      "player_scores": [
+        4.0,
+        14.0,
+        4.0,
+        4.0
+      ],
+      "player_percentages": [
+        61.53846153846154,
+        215.3846153846154,
+        61.53846153846154,
+        61.53846153846154
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0,
+        2,
+        3
+      ],
+      "rl_agent_score": 4.0,
+      "rl_agent_percentage": 61.53846153846154,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        14.0,
+        4.0,
+        4.0
+      ],
+      "bot_percentages": [
+        215.3846153846154,
+        61.53846153846154,
+        61.53846153846154
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 436,
+        "rl_decision_count": 64
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.564400",
+      "player_scores": [
+        4.0,
+        8.0,
+        1.0,
+        13.0
+      ],
+      "player_percentages": [
+        61.53846153846154,
+        123.07692307692308,
+        15.384615384615385,
+        200.0
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 2,
+      "winners": [
+        2
+      ],
+      "rl_agent_score": 4.0,
+      "rl_agent_percentage": 61.53846153846154,
+      "rl_agent_rank": 2,
+      "bot_scores": [
+        8.0,
+        1.0,
+        13.0
+      ],
+      "bot_percentages": [
+        123.07692307692308,
+        15.384615384615385,
+        200.0
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 52,
+      "game_length": 52,
+      "rl_decisions": 52,
+      "debug_info": {
+        "total_rl_moves": 488,
+        "rl_decision_count": 52
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.651522",
+      "player_scores": [
+        0.0,
+        0.0,
+        13.0,
+        13.0
+      ],
+      "player_percentages": [
+        0.0,
+        0.0,
+        200.0,
+        200.0
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0,
+        1
+      ],
+      "rl_agent_score": 0.0,
+      "rl_agent_percentage": 0.0,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        0.0,
+        13.0,
+        13.0
+      ],
+      "bot_percentages": [
+        0.0,
+        200.0,
+        200.0
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 52,
+      "game_length": 52,
+      "rl_decisions": 52,
+      "debug_info": {
+        "total_rl_moves": 540,
+        "rl_decision_count": 52
+      }
+    },
+    {
+      "timestamp": "2025-10-17T16:43:15.763999",
+      "player_scores": [
+        1.0,
+        13.0,
+        5.0,
+        7.0
+      ],
+      "player_percentages": [
+        15.384615384615385,
+        200.0,
+        76.92307692307693,
+        107.6923076923077
+      ],
+      "expected_points_per_player": 6.5,
+      "winner": 0,
+      "winners": [
+        0
+      ],
+      "rl_agent_score": 1.0,
+      "rl_agent_percentage": 15.384615384615385,
+      "rl_agent_rank": 1,
+      "bot_scores": [
+        13.0,
+        5.0,
+        7.0
+      ],
+      "bot_percentages": [
+        200.0,
+        76.92307692307693,
+        107.6923076923077
+      ],
+      "bot_strategies": [
+        "self_play",
+        "self_play",
+        "self_play"
+      ],
+      "total_actions": 64,
+      "game_length": 64,
+      "rl_decisions": 64,
+      "debug_info": {
+        "total_rl_moves": 604,
+        "rl_decision_count": 64
+      }
+    }
+  ]
+}

@@ -1,40 +1,55 @@
 """
 Game State Manager
-Manages multiple game sessions and coordinates between OpenSpiel and frontend
+Manages multiple game sessions using Gymnasium environment with automatic AI control
 """
 from typing import Dict, Optional
 from ..schemas.types import GameState, Player, Card
-from .hearts_logic import HeartsGame
-from ..models.hearts_model import HeartsAIModel
+from .hearts_gym_wrapper import HeartsGymWrapper
+from .hearts_logic import HeartsGame  # Keep for utility functions
 from dotenv import load_dotenv
 import os
+import numpy as np
 
 load_dotenv()
 
 
 class GameStateManager:
     """
-    Manages game sessions and coordinates between frontend and OpenSpiel
+    Manages game sessions using HeartsGymWrapper for automatic AI control
     """
     
-    def __init__(self):
-        self.games: Dict[str, HeartsGame] = {}
+    def __init__(self, eager_load: bool = True):
+        """
+        Initialize GameStateManager with Gymnasium environment
+        
+        Args:
+            eager_load: If True, load AI model immediately for low latency
+        """
+        self.gym_wrappers: Dict[str, HeartsGymWrapper] = {}
         self.game_states: Dict[str, GameState] = {}
         
-        # Load AI model from checkpoint
-        checkpoint_path = os.getenv("CHECKPOINT_PATH", "PPO_2025-10-07_04-21-40/PPO_hearts_env_self_play_1f830_00000_0_2025-10-07_04-21-40/checkpoint_000009")
-        self.ai_model = HeartsAIModel(checkpoint_path=None)
-        # self.ai_model = HeartsAIModel(checkpoint_path=checkpoint_path)
+        # Store checkpoint path for creating new game wrappers
+        self.checkpoint_path = os.getenv("CHECKPOINT_PATH") or os.getenv("MODEL_CHECKPOINT_PATH")
+        self.eager_load = eager_load
+        print(f"GameStateManager initialized (eager_load={eager_load})")
+        print(f"Checkpoint path: {self.checkpoint_path}")
         
     def create_game(self, game_id: str) -> GameState:
         """
-        Create a new game session
+        Create a new game session using Gymnasium wrapper
         """
-        # Initialize OpenSpiel game
-        game = HeartsGame()
-        self.games[game_id] = game
+        # Create HeartsGymWrapper which handles AI automatically
+        wrapper = HeartsGymWrapper(
+            checkpoint_path=self.checkpoint_path,
+            human_player_id=0,
+            eager_load=self.eager_load
+        )
+        self.gym_wrappers[game_id] = wrapper
         
-        # Create initial game state
+        # Reset the environment (AI turns are handled automatically)
+        gym_state = wrapper.reset()
+        
+        # Create initial game state for frontend
         players = [
             Player(id=0, name="You", is_ai=False, hand=[], score=0, round_score=0),
             Player(id=1, name="AI 1", is_ai=True, hand=[], score=0, round_score=0),
@@ -42,22 +57,24 @@ class GameStateManager:
             Player(id=3, name="AI 3", is_ai=True, hand=[], score=0, round_score=0),
         ]
         
-        # The OpenSpiel RL Environment automatically handles card dealing during reset
-        # No need to manually process chance nodes
+        # Get hands from the wrapper's internal game
+        # We need to access the internal game for hand extraction
+        internal_game = HeartsGame()
+        internal_game._env = wrapper.env._base_env
+        internal_game._timestep = wrapper.env._last_timestep
         
-        current_player = game.current_player()
-        
-        # Get hands for all players
         for player in players:
-            player.hand = game.get_player_hand(player.id)
+            player.hand = internal_game.get_player_hand(player.id)
         
-        # Get observation and legal actions for current player
-        observation = game.get_observation(current_player).tolist()
-        legal_actions = game.get_legal_actions()
+        # Extract game info from gym state
+        observation = gym_state["observation"].tolist()
+        legal_actions = gym_state["legal_actions"]
+        current_player = gym_state["current_player"]
         
-        # Check if we're in passing phase and get pass direction
-        is_passing_phase = game.is_passing_phase(0)  # Check for human player (player 0)
-        pass_direction = game.get_pass_direction(0)  # Get pass direction for human player
+        # Check passing phase using internal game
+        is_passing_phase = internal_game.is_passing_phase(0)
+        pass_direction = internal_game.get_pass_direction(0)
+        hearts_broken = internal_game.hearts_broken
         
         game_state = GameState(
             players=players,
@@ -66,7 +83,7 @@ class GameStateManager:
             round_number=1,
             tricks_played=0,
             game_over=False,
-            hearts_broken=game.hearts_broken,
+            hearts_broken=hearts_broken,
             winner=None,
             observation=observation,
             legal_actions=legal_actions,
@@ -75,11 +92,6 @@ class GameStateManager:
         )
         
         self.game_states[game_id] = game_state
-        
-        # If AI goes first, process AI turns immediately
-        if current_player != 0 and not game.is_terminal():
-            game_state = self.process_ai_turns(game_id)
-        
         return game_state
     
     def get_game(self, game_id: str) -> Optional[GameState]:
@@ -88,198 +100,85 @@ class GameStateManager:
     
     def play_card(self, game_id: str, player_id: int, card: Card) -> GameState:
         """
-        Process a player's move
+        Process a player's move using Gymnasium wrapper (AI turns handled automatically)
         """
-        game = self.games.get(game_id)
+        wrapper = self.gym_wrappers.get(game_id)
         game_state = self.game_states.get(game_id)
         
-        if not game or not game_state:
+        if not wrapper or not game_state:
             raise ValueError("Game not found")
         
         if game_state.current_player != player_id:
             raise ValueError(f"Not your turn (current player: {game_state.current_player}, you: {player_id})")
         
-        # Clear previous completed trick if starting a new one
-        if len(game_state.current_trick) == 4:
-            game_state.current_trick = []
-            if not game.is_passing_phase(0):
-                game_state.tricks_played += 1
+        # Convert card to action
+        internal_game = HeartsGame()
+        internal_game._env = wrapper.env._base_env
+        internal_game._timestep = wrapper.env._last_timestep
+        action = internal_game.card_to_action(card)
         
-        # Validate move
-        print(f"CARD PLAYED: {card}")
-        if not game.validate_move(player_id, card):
-            print(f"Current player hand: {game.get_player_hand(player_id)}")
-            legal_actions = game.get_legal_actions()
-            print(f"Legal actions: {legal_actions}")
-            legal_cards = [game.action_to_card(a) for a in legal_actions]
-            print(f"Legal cards: {[str(c) for c in legal_cards]}")
-            raise ValueError(f"Invalid move: {card} not in legal actions. Legal cards: {[str(c) for c in legal_cards]}")
+        print(f"CARD PLAYED: {card} (action: {action})")
         
-        # Apply action to OpenSpiel
-        action = game.card_to_action(card)
-        game.apply_action(action)
+        # Step the gym environment (AI players will move automatically)
+        try:
+            result = wrapper.step(action)
+        except ValueError as e:
+            # Extract legal actions for better error message
+            legal_actions = wrapper.get_legal_actions()
+            legal_cards = [internal_game.action_to_card(a) for a in legal_actions]
+            raise ValueError(f"Invalid move: {card}. Legal cards: {[str(c) for c in legal_cards]}")
         
-        # Update game state
+        # Update game state from result
         game_state.current_trick.append((player_id, card))
         
-        # Update current player and legal actions
-        if not game.is_terminal():
-            game_state.current_player = game.current_player()
-            game_state.observation = game.get_observation(game_state.current_player).tolist()
-            game_state.legal_actions = game.get_legal_actions()
-            game_state.hearts_broken = game.hearts_broken
-            game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
-            game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
-            # Update human player's hand
-            if player_id == 0:
-                game_state.players[0].hand = game.get_player_hand(0)
-        else:
+        # Update state based on gym result
+        if result['terminated']:
             game_state.game_over = True
-            game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
-            scores = game.get_scores()
+            game_state.is_passing_phase = False
+            all_rewards = result['all_rewards']
+            # Convert rewards to scores (OpenSpiel returns negative values)
             for i, player in enumerate(game_state.players):
-                player.score = scores[i]
-            # Determine winner (lowest score)
+                player.score = int(26-all_rewards[i])  # Negate to get positive penalty scores
             winner_id = min(range(4), key=lambda i: game_state.players[i].score)
             game_state.winner = winner_id
-            # Clear all players' hands when game ends
+            # Clear all hands
             for player in game_state.players:
                 player.hand = []
-        
-        self.game_states[game_id] = game_state
-        return game_state
-    
-    def process_single_ai_move(self, game_id: str) -> GameState:
-        """
-        Process a single AI move (one card play)
-        Returns the updated game state
-        """
-        game = self.games.get(game_id)
-        game_state = self.game_states.get(game_id)
-        
-        if not game or not game_state:
-            raise ValueError("Game not found")
-        
-        # Only process if it's an AI's turn
-        if game.is_terminal() or not game_state.players[game_state.current_player].is_ai:
-            return game_state
-        
-        # Clear previous completed trick if starting a new one
-        if len(game_state.current_trick) == 4:
             game_state.current_trick = []
-            if not game.is_passing_phase(0):
-                game_state.tricks_played += 1
-        
-        player_id = game_state.current_player
-        
-        # Get AI action
-        observation = game.get_observation(player_id)
-        legal_actions = game.get_legal_actions()
-        action = self.ai_model.get_action(observation, legal_actions)
-        
-        # Convert action to card
-        card = game.action_to_card(action)
-        
-        # Apply action
-        game.apply_action(action)
-        game_state.current_trick.append((player_id, card))
-        
-        # Update state
-        if not game.is_terminal():
-            game_state.current_player = game.current_player()
-            game_state.observation = game.get_observation(game_state.current_player).tolist()
-            game_state.legal_actions = game.get_legal_actions()
-            game_state.hearts_broken = game.hearts_broken
-            game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
-            game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
+        else:
+            # Update from gym state
+            game_state.current_player = result['current_player']
+            game_state.observation = result['observation'].tolist()
+            game_state.legal_actions = result['legal_actions']
+            
+            # Update internal game reference
+            internal_game._timestep = wrapper.env._last_timestep
+            game_state.hearts_broken = internal_game.hearts_broken
+            game_state.is_passing_phase = internal_game.is_passing_phase(0)
+            game_state.pass_direction = internal_game.get_pass_direction(0)
+            
             # Update all players' hands
             for player in game_state.players:
-                player.hand = game.get_player_hand(player.id)
-        else:
-            game_state.game_over = True
-            game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
-            scores = game.get_scores()
-            for i, player in enumerate(game_state.players):
-                player.score = scores[i]
-            winner_id = min(range(4), key=lambda i: game_state.players[i].score)
-            game_state.winner = winner_id
-            # Clear all players' hands when game ends
-            for player in game_state.players:
-                player.hand = []
-        
-        self.game_states[game_id] = game_state
-        return game_state
-    
-    def process_ai_turns(self, game_id: str) -> GameState:
-        """
-        Process AI player turns until it's the human player's turn or trick is complete
-        """
-        game = self.games.get(game_id)
-        game_state = self.game_states.get(game_id)
-        
-        if not game or not game_state:
-            raise ValueError("Game not found")
-        
-        # Process AI turns
-        while not game.is_terminal() and game_state.players[game_state.current_player].is_ai:
-            # Clear previous completed trick if starting a new one
-            if len(game_state.current_trick) == 4:
-                game_state.current_trick = []
-                if not game.is_passing_phase(0):
-                    game_state.tricks_played += 1
-            
-            player_id = game_state.current_player
-            
-            # Get AI action
-            observation = game.get_observation(player_id)
-            legal_actions = game.get_legal_actions()
-            action = self.ai_model.get_action(observation, legal_actions)
-            
-            # Convert action to card
-            card = game.action_to_card(action)
-            
-            # Apply action
-            game.apply_action(action)
-            game_state.current_trick.append((player_id, card))
-            
-            # Update state
-            if not game.is_terminal():
-                game_state.current_player = game.current_player()
-                game_state.observation = game.get_observation(game_state.current_player).tolist()
-                game_state.legal_actions = game.get_legal_actions()
-                game_state.hearts_broken = game.hearts_broken
-                game_state.is_passing_phase = game.is_passing_phase(0)  # Update passing phase status
-                game_state.pass_direction = game.get_pass_direction(0)  # Update pass direction
-                # Update all players' hands
-                for player in game_state.players:
-                    player.hand = game.get_player_hand(player.id)
-            else:
-                game_state.game_over = True
-                game_state.is_passing_phase = False  # Ensure passing phase is False when game ends
-                scores = game.get_scores()
-                for i, player in enumerate(game_state.players):
-                    player.score = scores[i]
-                winner_id = min(range(4), key=lambda i: game_state.players[i].score)
-                game_state.winner = winner_id
-                # Clear all players' hands when game ends
-                for player in game_state.players:
-                    player.hand = []
-                break
+                player.hand = internal_game.get_player_hand(player.id)
         
         self.game_states[game_id] = game_state
         return game_state
     
     def reset_game(self, game_id: str) -> GameState:
         """Reset a game to initial state"""
-        if game_id in self.games:
-            del self.games[game_id]
+        if game_id in self.gym_wrappers:
+            # Shutdown old wrapper
+            self.gym_wrappers[game_id].shutdown()
+            del self.gym_wrappers[game_id]
             del self.game_states[game_id]
         return self.create_game(game_id)
     
     def delete_game(self, game_id: str) -> bool:
         """Delete a game session"""
-        if game_id in self.games:
-            del self.games[game_id]
+        if game_id in self.gym_wrappers:
+            # Shutdown wrapper before deleting
+            self.gym_wrappers[game_id].shutdown()
+            del self.gym_wrappers[game_id]
             del self.game_states[game_id]
             return True
         return False
