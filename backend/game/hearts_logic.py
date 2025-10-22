@@ -197,12 +197,11 @@ class HeartsGame:
         """
         Check if we're currently in the passing phase for a given player.
         
-        The passing phase occurs at the start of the game and when:
+        The passing phase occurs when:
         1. Pass direction is 1, 2, or 3 (Left, Across, or Right)
-        2. Player has 13 cards in their hand (initial deal)
-        3. Player hasn't passed any cards yet (passed cards section is empty)
-        4. Player hasn't received any cards yet (received cards section is empty)
-        5. History of tricks is empty
+        2. Player hasn't passed 3 cards yet OR hasn't received 3 cards yet
+        
+        Once the player has both passed and received 3 cards, the passing phase is complete.
         """
         if self._timestep is None:
             return False
@@ -225,12 +224,9 @@ class HeartsGame:
             received_cards = observation[108:160]
             cards_received = int(np.sum(received_cards))
 
-            # Check if history of tricks is empty (indices 356-5087)
-            trick_history = observation[356:5087]
-            history_of_tricks = int(np.sum(trick_history))
-            
             # Passing phase: < 3 cards passed or < 3 cards received
-            return (cards_passed < 3 or cards_received < 3) or history_of_tricks == 0
+            # Once all cards are passed AND received, passing phase is complete
+            return (cards_passed < 3 or cards_received < 3)
             
         except Exception as e:
             print(f"Error checking passing phase for player {player_id}: {e}")
