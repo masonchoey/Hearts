@@ -39,6 +39,7 @@ class GameState(BaseModel):
     """Complete game state"""
     players: List[Player]
     current_trick: List[tuple[int, Card]] = []  # Cards played in current trick
+    move_sequence: List[tuple[int, Card]] = []  # Sequence of moves that happened in last step (for animation)
     current_player: int = 0  # Player whose turn it is
     round_number: int = 1
     tricks_played: int = 0

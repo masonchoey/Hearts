@@ -21,7 +21,12 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
       return;
     }
     console.log('Attempting to play card:', { playerId, card: selectedCard, currentPlayer: gameState?.current_player });
-    playCard(playerId, selectedCard);
+    //check to see the difference between the updated state, and the current state, and then animate the cards
+    console.log('Current State:', gameState);
+    const updatedState = playCard(playerId, selectedCard);
+    // const difference = updatedState.filter(card => !gameState.current_trick.includes(card));
+    console.log('Updated State:', updatedState);
+    // animateCards
   };
 
   const handlePassCards = () => {
@@ -43,7 +48,8 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
 
   const isCardPlayed = (card) => {
     // Check if this card is in the current trick
-    return gameState?.current_trick?.some(trickCard => 
+    // current_trick format: [[playerId, card], ...]
+    return gameState?.current_trick?.some(([playerId, trickCard]) => 
       trickCard.suit === card.suit && trickCard.rank === card.rank
     );
   };
@@ -55,6 +61,7 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
       if (event.code === 'Space' && isCurrentPlayer && !isLoading) {
         event.preventDefault(); // Prevent page scroll
         
+        // handlePlayCard();
         if (gameState?.is_passing_phase) {
           // In passing phase, spacebar passes the selected cards
           handlePassCards();

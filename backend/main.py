@@ -195,7 +195,11 @@ async def reset_game(game_id: str):
 @app.post("/ai-move/{game_id}")
 async def process_single_ai_move(game_id: str):
     """
-    Process a single AI move (one card play)
+    LEGACY: Process a single AI move (one card play)
+    This endpoint exists for backward compatibility but is not implemented
+    in the current GameStateManager. The gym environment automatically
+    handles all AI moves when playCard() is called.
+    
     Returns updated game state after one AI card is played
     """
     game_state = game_manager.get_game(game_id)
@@ -203,6 +207,8 @@ async def process_single_ai_move(game_id: str):
         raise HTTPException(status_code=404, detail="Game not found")
     
     try:
+        # LEGACY: This method is not implemented in GameStateManager
+        # The gym environment automatically processes AI moves
         updated_state = game_manager.process_single_ai_move(game_id)
         return {
             "state": updated_state.dict(),
@@ -215,7 +221,11 @@ async def process_single_ai_move(game_id: str):
 @app.post("/ai-turns/{game_id}")
 async def process_ai_turns(game_id: str):
     """
-    Process AI turns until it's the human player's turn or trick is complete
+    LEGACY: Process AI turns until it's the human player's turn or trick is complete
+    This endpoint exists for backward compatibility but is not implemented
+    in the current GameStateManager. The gym environment automatically
+    handles all AI moves when playCard() is called.
+    
     Useful for debugging or manual AI turn triggering
     """
     game_state = game_manager.get_game(game_id)
@@ -223,6 +233,8 @@ async def process_ai_turns(game_id: str):
         raise HTTPException(status_code=404, detail="Game not found")
     
     try:
+        # LEGACY: This method is not implemented in GameStateManager
+        # The gym environment automatically processes AI moves
         updated_state = game_manager.process_ai_turns(game_id)
         return {
             "state": updated_state.dict(),

@@ -2,7 +2,7 @@
  * Main Game Board Component
  * Arranges 4 players around a table
  */
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../hooks/useGameState';
 import PlayerHand from './PlayerHand';
 import TableCenter from './TableCenter';
@@ -11,8 +11,59 @@ import PassDirectionWidget from './PassDirectionWidget';
 import './GameBoard.css';
 
 const GameBoard = () => {
-  const { gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow } = useGameStore();
+  const { gameId, gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow, animatedTrick, hasAnimatedInitialTrick } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
+  const isAnimatingRef = useRef(false);
+
+  // Animate initial cards when board first mounts
+  useEffect(() => {
+    let cancelled = false;
+    
+    const animateInitialTrick = async () => {
+      const trick = gameState?.current_trick || [];
+      
+      // Only animate if:
+      // 1. Game is loaded
+      // 2. Haven't animated yet
+      // 3. Not currently animating (check ref)
+      // 4. There are cards to animate
+      if (!gameId || hasAnimatedInitialTrick || isAnimatingRef.current || trick.length === 0) {
+        return;
+      }
+
+      console.log(`Animating initial trick with ${trick.length} cards`);
+      
+      // Mark that we're animating
+      isAnimatingRef.current = true;
+      
+      // Clear any previous animations
+      useGameStore.setState({ animatedTrick: [] });
+      
+      // Animate each card one by one
+      for (let i = 0; i < trick.length && !cancelled; i++) {
+        const [playerId, card] = trick[i];
+        console.log(`Animating card ${i}: Player ${playerId}, ${card.rank}${card.suit}`);
+        useGameStore.setState(state => ({ 
+          animatedTrick: [...state.animatedTrick, [playerId, card]] 
+        }));
+        await new Promise(resolve => setTimeout(resolve, animationDelay));
+      }
+      
+      // Mark as animated AFTER all cards are shown
+      if (!cancelled) {
+        useGameStore.setState({ hasAnimatedInitialTrick: true });
+      }
+      
+      isAnimatingRef.current = false;
+    };
+
+    animateInitialTrick();
+    
+    return () => { 
+      cancelled = true;
+      isAnimatingRef.current = false;
+    };
+  }, [gameId, gameState?.current_trick, animationDelay, hasAnimatedInitialTrick]);
 
   if (!gameState) {
     return <div className="loading">Loading game...</div>;
@@ -71,12 +122,12 @@ const GameBoard = () => {
         {/* Animation Speed Slider */}
         <div className="animation-speed-control">
           <label>
-            <span>Delay Between AI Moves: {(animationDelay / 1000).toFixed(2)}s</span>
+            <span>Card Animation Delay: {(animationDelay / 1000).toFixed(2)}s</span>
             <input
               type="range"
-              min="0"
-              max="500"
-              step="50"
+              min="10"
+              max="1000"
+              step="10"
               value={animationDelay}
               onChange={(e) => setAnimationDelay(Number(e.target.value))}
               className="speed-slider"
@@ -134,10 +185,7 @@ const GameBoard = () => {
       </div>
 
       {/* Center Table */}
-      <TableCenter 
-        trick={gameState.current_trick || []} 
-        isPassingPhase={gameState.is_passing_phase}
-      />
+      <TableCenter/>
 
       {/* Bottom Player (Human) */}
       <div className="player-area player-bottom">

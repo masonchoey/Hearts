@@ -33,6 +33,30 @@ class GameStateManager:
         self.eager_load = eager_load
         print(f"GameStateManager initialized (eager_load={eager_load})")
         print(f"Checkpoint path: {self.checkpoint_path}")
+    
+    def _get_current_trick_from_history(self, game_history: list, internal_game: HeartsGame) -> list:
+        """
+        Extract the current incomplete trick from game history.
+        
+        Args:
+            game_history: List of (player_id, action) tuples
+            internal_game: HeartsGame instance for card conversion
+            
+        Returns:
+            List of (player_id, Card) tuples representing the current trick
+        """
+        # The current trick is the last N cards where N = len(history) % 4
+        current_trick_size = len(game_history) % 4
+        if current_trick_size == 0:
+            return []
+        
+        # Get the last N moves and convert to cards
+        current_trick = []
+        for player_id, action in game_history[-current_trick_size:]:
+            card = internal_game.action_to_card(action)
+            current_trick.append((player_id, card))
+        
+        return current_trick
         
     def create_game(self, game_id: str) -> GameState:
         """
@@ -76,9 +100,14 @@ class GameStateManager:
         pass_direction = internal_game.get_pass_direction(0)
         hearts_broken = internal_game.hearts_broken
         
+        # Get current trick from game history (in case AI players have already played)
+        game_history = wrapper.get_game_history()
+        current_trick = self._get_current_trick_from_history(game_history, internal_game)
+        
         game_state = GameState(
             players=players,
-            current_trick=[],
+            current_trick=current_trick,
+            move_sequence=[],
             current_player=current_player,
             round_number=1,
             tricks_played=0,
@@ -118,7 +147,11 @@ class GameStateManager:
         action = internal_game.card_to_action(card)
         
         print(f"CARD PLAYED: {card} (action: {action})")
-        
+
+        #get the game history
+        previous_game_history = wrapper.get_game_history()
+        print(f"Previous Game history: {previous_game_history}")
+
         # Step the gym environment (AI players will move automatically)
         try:
             result = wrapper.step(action)
@@ -128,8 +161,36 @@ class GameStateManager:
             legal_cards = [internal_game.action_to_card(a) for a in legal_actions]
             raise ValueError(f"Invalid move: {card}. Legal cards: {[str(c) for c in legal_cards]}")
         
-        # Update game state from result
-        game_state.current_trick.append((player_id, card))
+        # Update internal game reference to latest timestep
+        internal_game._timestep = wrapper.env._last_timestep
+        
+        # Reconstruct current_trick from game history
+        # This ensures we have all cards played (human + AI) in the current trick
+        game_history = result.get('game_history', [])
+        # print(f"ENV Result: {result}")
+
+        #find all items that are in game history but not in previous_game_history
+        new_cards = [item for item in game_history if item not in previous_game_history]
+        print(f"New cards (raw actions): {new_cards}")
+        
+        # Convert actions to Card objects to match expected format: List[tuple[int, Card]]
+        game_state.current_trick = [
+            (pid, action)
+            for (pid, action) in self._get_current_trick_from_history(game_history, internal_game)
+        ]
+        #add all the cards to move_sequence that are in new_cards but not in current_trick
+        game_state.move_sequence = [
+            (pid, internal_game.action_to_card(action))
+            for (pid, action) in new_cards
+            if (pid, internal_game.action_to_card(action)) not in self._get_current_trick_from_history(game_history, internal_game)
+        ]
+
+        print(f"Move sequence: {game_state.move_sequence}")
+        print(f"Current trick: {game_state.current_trick}")
+
+        print(f"  Current trick now has {len(game_state.current_trick)} cards:")
+        for pid, c in game_state.current_trick:
+            print(f"    Player {pid}: {c}")
         
         # Update state based on gym result
         if result['terminated']:

@@ -1210,6 +1210,8 @@ def main():
         print("❌ Simulation failed.")
 
 
+# LEGACY: run_debug_simulation - Not used in current implementation
+# This function exists for backward compatibility and debugging purposes
 # def run_debug_simulation(bot_type, num_games, debug_frequency):
 #     """
 #     Convenience function to run a small simulation with full RL debugging enabled.

@@ -14,6 +14,8 @@ export const useGameStore = create((set, get) => ({
   selectedCards: [], // For passing phase - array of up to 3 cards
   animationDelay: 200, // Default 1 second (in milliseconds)
   showGameOverModal: false, // Control visibility of game over modal
+  animatedTrick: [], // Temporary state for card animations - array of [playerId, card] tuples
+  hasAnimatedInitialTrick: false, // Track if we've animated the initial trick on game start
 
   // Actions
   startNewGame: async () => {
@@ -25,15 +27,18 @@ export const useGameStore = create((set, get) => ({
         gameState: data.state,
         isLoading: false,
         selectedCards: [],
+        hasAnimatedInitialTrick: false, // Reset animation flag
+        animatedTrick: [], // Clear any previous animations
       });
       
-      // No need to process AI moves - the gym environment
-      // automatically advances to the human's turn
+      // Animation will be handled by GameBoard when it mounts
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
   },
 
+  // LEGACY: refreshState - Not used in current implementation
+  // The gym environment automatically handles state updates
   refreshState: async () => {
     const { gameId } = get();
     if (!gameId) return;
@@ -47,40 +52,84 @@ export const useGameStore = create((set, get) => ({
   },
 
   playCard: async (playerId, card) => {
-    const { gameId, isLoading } = get();
-    if (!gameId) return;
+    const { gameId, isLoading, gameState, animationDelay } = get();
+    if (!gameId) return null;
     
     // Prevent double-clicks
     if (isLoading) {
       console.warn('Already processing a move, ignoring...');
-      return;
+      return null;
     }
 
     console.log('Playing card:', { playerId, card });
     set({ isLoading: true, error: null });
+    
+    // Save the current trick before the move
+    const oldTrick = gameState?.current_trick || [];
+    
     try {
       const data = await playMove(gameId, playerId, card);
       console.log('Move successful, new state:', data.state);
       
-      // The gym environment automatically processes all AI moves
-      // So the returned state already has it back to the human's turn
-      set({
-        gameState: data.state,
+      // Get the new trick from the response
+      // cardsToAnimate is the cards that were played before the current_trick but after the player's last move.
+      const cardsToAnimate = data.state.move_sequence || [];
+      const currentTrick = data.state.current_trick || [];
+      // Calculate which cards were just played (difference between old and new trick)
+      console.log('Cards to animate:', cardsToAnimate);
+      
+      console.log(`Animating ${cardsToAnimate.length} new cards`);
+      
+      // If there are new cards to animate, show them one by one
+      if (cardsToAnimate.length > 0 && animationDelay > 0) {
+        //Animate in two different steps: First, animate the cards in move_sequence but not in current_trick, then animate the cards in current_trick
+        for (let i = 0; i < cardsToAnimate.length; i++) {
+          const [playerId, card] = cardsToAnimate[i];
+          set({ animatedTrick: [...get().animatedTrick, [playerId, card]] });
+          await new Promise(resolve => setTimeout(resolve, animationDelay));
+        }
+
+        // Small delay to show the complete trick before updating state
+        await new Promise(resolve => setTimeout(resolve, Math.max(500, Math.min(animationDelay * 3, 1500))));
+        //Clear the previous animated trick
+        set({ animatedTrick: [] });
+
+        //Animate the cards in current_trick
+        for (let i = 0; i < currentTrick.length; i++) {
+          const [playerId, card] = currentTrick[i];
+          set({ animatedTrick: [...get().animatedTrick, [playerId, card]] });
+          await new Promise(resolve => setTimeout(resolve, animationDelay));
+        }
+      
+      }
+      
+      // Update the actual game state and clear animation
+      const updatedState = {
+        gameState: data.state, 
         isLoading: false,
         selectedCard: null,
-      });
+        // animatedTrick: [], // Clear animation after state update
+      };
+      
+      set(updatedState);
       
       // Check if game is over and schedule modal display
       if (data.state.game_over) {
         get().scheduleGameOverModal();
       }
+      
+      return updatedState;
     } catch (error) {
       console.error('Play card error:', error.response?.data || error);
       const errorMsg = error.response?.data?.detail || error.message;
-      set({ error: errorMsg, isLoading: false });
+      const errorState = { error: errorMsg, isLoading: false};
+      set(errorState);
+      return errorState;
     }
   },
 
+  // LEGACY: processAIMovesWithDelay - Not used in current implementation
+  // The gym environment automatically processes all AI moves when playCard() is called
   processAIMovesWithDelay: async () => {
     // NOTE: The gym environment automatically processes all AI moves
     // when playCard() is called, so AI moves don't need to be processed separately.
@@ -115,15 +164,18 @@ export const useGameStore = create((set, get) => ({
         selectedCard: null,
         selectedCards: [],
         showGameOverModal: false,
+        animatedTrick: [],
+        hasAnimatedInitialTrick: false, // Reset animation flag for new game
       });
       
-      // No need to process AI moves - the gym environment
-      // automatically advances to the human's turn
+      // Animation will be handled by GameBoard when it mounts
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
   },
 
+  // LEGACY: processAITurns - Not used in current implementation
+  // The gym environment automatically processes all AI moves when playCard() is called
   processAITurns: async () => {
     const { gameId, isLoading } = get();
     if (!gameId || isLoading) return;
@@ -141,7 +193,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   passCards: async (playerId, cards) => {
-    const { gameId, isLoading } = get();
+    const { gameId, isLoading, animationDelay } = get();
     if (!gameId) return;
     
     // Prevent double-clicks
@@ -211,7 +263,7 @@ export const useGameStore = create((set, get) => ({
 
   showGameOverModalNow: () => {
     set({ showGameOverModal: true });
-  },
+  }
 }));
 
 

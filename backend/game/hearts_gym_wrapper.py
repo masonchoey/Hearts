@@ -92,6 +92,7 @@ class HeartsGymWrapper:
                 - is_human_turn: Whether it's currently human's turn
                 - current_player: Current player ID
                 - all_rewards: Rewards for all players
+                - game_history: Complete game history of (player_id, action) tuples
         """
         if not self._game_active:
             raise RuntimeError("No active game. Call reset() first.")
@@ -113,7 +114,8 @@ class HeartsGymWrapper:
             "terminated": terminated,
             "is_human_turn": info["is_human_turn"],
             "current_player": info["current_player"],
-            "all_rewards": info["all_player_rewards"]
+            "all_rewards": info["all_player_rewards"],
+            "game_history": info["game_history"]
         }
     
     def get_legal_actions(self) -> List[int]:
@@ -174,6 +176,8 @@ class HeartsGymWrapper:
 
 
 # Example usage function
+# LEGACY: example_usage - Not used in current implementation
+# This function exists for backward compatibility and documentation purposes
 def example_usage():
     """Example of how to use the HeartsGymWrapper in the backend."""
     print("\n" + "="*60)

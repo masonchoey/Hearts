@@ -1,12 +1,18 @@
 /**
  * Table Center Component
- * Displays cards played in the current trick with animations
+ * Displays cards played in the current trick
  */
-import { useState, useEffect, useRef } from 'react';
+import { useGameStore } from '../hooks/useGameState';
 import Card from './Card';
 import './TableCenter.css';
 
-const TableCenter = ({ trick, isPassingPhase }) => {
+const TableCenter = () => {
+  const { animatedTrick } = useGameStore();
+  
+  // Use animatedTrick during animation, otherwise show the actual trick
+  // animatedTrick will be [] when not animating, so we'll use trick in that case
+  const displayTrick = animatedTrick.length > 0 ? animatedTrick : [];
+  
   // Map player positions for display
   const getCardPosition = (playerId) => {
     const positions = {
@@ -21,11 +27,11 @@ const TableCenter = ({ trick, isPassingPhase }) => {
   return (
     <div className="table-center">
       <div className="table-surface">
-        {trick && trick.length > 0 && !isPassingPhase ? (
+        {displayTrick && displayTrick.length > 0 ? (
           <div className="trick-cards">
-            {trick.map(([playerId, card], index) => (
+            {displayTrick.map(([playerId, card], index) => (
               <div
-                key={`${playerId}-${card.suit}-${card.rank}`}
+                key={`${playerId}-${card.suit}-${card.rank}-${index}`}
                 className={`trick-card position-${getCardPosition(playerId)}`}
                 style={{ '--card-index': index }}
               >
