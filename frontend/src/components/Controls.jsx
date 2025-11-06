@@ -28,7 +28,6 @@ const Controls = ({ onShowScoreboard }) => {
       {gameState && (
         <div className="game-info">
           <span>Round: {gameState.round_number}</span>
-          <span>Tricks: {gameState.tricks_played}/13</span>
           <span className={gameState.hearts_broken ? 'hearts-broken' : ''}>
             {gameState.hearts_broken ? '♥ Broken' : '♥ Not Broken'}
           </span>

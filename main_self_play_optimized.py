@@ -65,10 +65,10 @@ register_env("hearts_env_self_play", env_creator_self_play)
 NUM_EPOCHS = 12                  # More epochs to maximize GPU utilization per batch
 MINIBATCH_SIZE = 128             # Minibatch size for T4 efficiency
 TRAIN_BATCH_SIZE = 4000          # Balanced for 2-CPU sample collection speed
-LEARNING_RATE = 5e-4             # Learning rate
-ENTROPY_COEFF = 0.2              # Entropy coefficient for exploration
-VF_LOSS_COEFF = 2.0              # Value function loss coefficient
-CLIP_PARAM = 0.3                 # PPO clipping parameter
+LEARNING_RATE = 3e-4             # Learning rate
+ENTROPY_COEFF = 0.05             # Entropy coefficient for exploration
+VF_LOSS_COEFF = 1.0              # Value function loss coefficient
+CLIP_PARAM = 0.2                 # PPO clipping parameter
 GRAD_CLIP = 0.5                  # Gradient clipping
 GAMMA = 0.99                     # Discount factor
 LAMBDA = 0.95                    # GAE lambda parameter

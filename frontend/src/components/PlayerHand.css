@@ -7,7 +7,6 @@
 
 .player-hand {
   display: flex;
-  gap: -15px; /* Overlap cards slightly for better visual */
   padding: 0.5rem;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
@@ -20,6 +19,11 @@
   cursor: pointer;
   transition: all 0.2s ease;
   animation: dealCard 0.5s ease calc(var(--card-index) * 0.05s) both;
+  margin-left: -37.05px; /* Overlap cards */
+}
+
+.card-wrapper:first-child {
+  margin-left: 0; /* Don't offset the first card */
 }
 
 @keyframes dealCard {
@@ -34,14 +38,12 @@
 }
 
 .card-wrapper:hover:not(.disabled) {
-  transform: translateY(-15px) scale(1.05);
-  z-index: 10;
+  transform: translateY(-16.15px) scale(1.05);
 }
 
 /* Enhanced styling for cards selected during passing phase */
 .player-hand-container:has(.passing-phase-controls) .card-wrapper.selected {
-  transform: translateY(-35px) scale(1.15);
-  z-index: 30;
+  transform: translateY(-37.05px) scale(1.15);
   box-shadow: 0 8px 25px rgba(231, 76, 60, 0.6);
   border: 7px solid #e74c3c rounded-md;
 }
@@ -52,29 +54,28 @@
 }
 
 .card-wrapper.selected {
-  transform: translateY(-25px) scale(1.12);
-  z-index: 25;
+  transform: translateY(-26.6px) scale(1.12);
   box-shadow: 0 6px 20px rgba(39, 174, 96, 0.6);
   border: 7px solid #27ae60 rounded-md;
 }
 
 .play-card-button {
-  padding: 0.75rem 2rem;
-  font-size: 1rem;
+  padding: 0.675rem 1.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
   color: white;
-  border-radius: 30px;
-  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+  border-radius: 27px;
+  box-shadow: 0 3.6px 13.5px rgba(39, 174, 96, 0.4);
   animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
-    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+    box-shadow: 0 3.6px 13.5px rgba(39, 174, 96, 0.4);
   }
   50% {
-    box-shadow: 0 6px 20px rgba(39, 174, 96, 0.6);
+    box-shadow: 0 5.4px 18px rgba(39, 174, 96, 0.6);
   }
 }
 
@@ -122,22 +123,22 @@
 
 .selected-cards-info {
   color: white;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.9rem;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  border-radius: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .pass-cards-button {
-  padding: 0.75rem 2rem;
-  font-size: 1rem;
+  padding: 0.675rem 1.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
   color: white;
-  border-radius: 30px;
-  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+  border-radius: 27px;
+  box-shadow: 0 3.6px 13.5px rgba(231, 76, 60, 0.4);
   animation: pulse 2s infinite;
 }
 

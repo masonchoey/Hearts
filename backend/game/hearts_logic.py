@@ -92,10 +92,11 @@ class HeartsGame:
         # Step the environment with the action (wrapped in list for OSPSingle API)
         self._timestep = self._env.step([action])
         
-        # Update hearts_broken based on the action (if it's a heart)
+        # Update hearts_broken based on the action
         # Hearts have suit=2, so action % 4 == 2
+        # Queen of Spades is rank=10 (Q), suit=3 (S), so action = 10 * 4 + 3 = 43
         if not self.is_passing_phase(0):
-            if action % 4 == 2:
+            if action % 4 == 2 or action == 43:  # Heart or Queen of Spades
                 self.hearts_broken = True
         
     def card_to_action(self, card: Card) -> int:

@@ -48,19 +48,31 @@
   gap: 0.25rem;
 }
 
+.player-area.player-right {
+  min-height: 541.21px;
+}
+
+.player-area.player-left {
+  min-height: 541.21px;
+}
+
+.player-area.player-top {
+  min-height: 107.91px;
+}
+
 .player-info {
   display: flex;
-  gap: 1rem;
+  gap: 0.9rem;
   align-items: center;
   background: rgba(0, 0, 0, 0.3);
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 18px;
   color: white;
 }
 
 .player-name {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .player-name.you {
@@ -68,7 +80,7 @@
 }
 
 .player-score {
-  font-size: 0.9rem;
+  font-size: 0.81rem;
   opacity: 0.9;
 }
 
@@ -96,30 +108,79 @@
 
 .ai-hand {
   display: flex;
+  margin-left: -20.9px; /* Offset the negative margin on first card */
 }
 
 .ai-hand.vertical {
+  padding-top: 31.35px;
+  padding-right: 10.45px;
+  padding-left: 10.45px;
+
   flex-direction: column;
+  margin-left: 0;
+  margin-top: -20.9px; /* Offset the negative margin on first card */
+}
+
+/* Overlap AI cards */
+.ai-hand > div {
+  margin-left: -20.9px; /* Overlap horizontal cards */
+}
+
+.ai-hand > div:first-child {
+  margin-left: 0; /* Don't offset the first card */
+}
+
+.ai-hand.vertical > div {
+  margin-left: 0;
+  margin-top: -31.35px; /* Overlap vertical cards */
+}
+
+.ai-hand.vertical > div:first-child {
+  margin-top: 0; /* Don't offset the first card */
 }
 
 .card-back-horizontal {
-  width: 84px;
-  height: 60px;
+  width: 94px;
+  height: 67px;
   background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
   border: 2px solid #1a252f;
-  border-radius: 8px;
+  border-radius: 9px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: relative;
 }
 
+.card-back-horizontal::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 33px;
+  height: 33px;
+  border: 3.3px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+}
+
 .card-back {
-  width: 60px;
-  height: 84px;
+  width: 67px;
+  height: 94px;
   background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
   border: 2px solid #1a252f;
-  border-radius: 8px;
+  border-radius: 9px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: relative;
+}
+
+.card-back::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 33px;
+  height: 33px;
+  border: 3.3px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
 }
 
 /* Game Over Modal */
@@ -160,9 +221,9 @@
   background: rgba(255, 255, 255, 0.1);
   border: none;
   color: white;
-  font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
+  font-size: 1.35rem;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
@@ -210,18 +271,18 @@
 }
 
 .play-again-button {
-  margin-top: 2rem;
-  padding: 1rem 3rem;
-  font-size: 1.2rem;
+  margin-top: 1.8rem;
+  padding: 0.9rem 2.7rem;
+  font-size: 1.08rem;
   font-weight: 600;
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
-  border-radius: 50px;
-  box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+  border-radius: 45px;
+  box-shadow: 0 3.6px 13.5px rgba(52, 152, 219, 0.4);
 }
 
 .play-again-button:hover {
-  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.6);
+  box-shadow: 0 5.4px 18px rgba(52, 152, 219, 0.6);
 }
 
 /* Debug Toggle */
@@ -249,24 +310,24 @@
 
 .debug-toggle {
   background: rgba(0, 0, 0, 0.7);
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  padding: 0.675rem 0.9rem;
+  border-radius: 7.2px;
   backdrop-filter: blur(10px);
 }
 
 .debug-toggle label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   cursor: pointer;
   color: white;
-  font-size: 0.9rem;
+  font-size: 0.81rem;
   user-select: none;
 }
 
 .debug-toggle input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16.2px;
+  height: 16.2px;
   cursor: pointer;
   accent-color: #e74c3c;
 }
@@ -278,17 +339,17 @@
 /* Animation Speed Control */
 .animation-speed-control {
   background: rgba(0, 0, 0, 0.7);
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  padding: 0.675rem 0.9rem;
+  border-radius: 7.2px;
   backdrop-filter: blur(10px);
 }
 
 .animation-speed-control label {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
   color: white;
-  font-size: 0.9rem;
+  font-size: 0.81rem;
   user-select: none;
 }
 
@@ -298,9 +359,9 @@
 }
 
 .speed-slider {
-  width: 150px;
-  height: 6px;
-  border-radius: 3px;
+  width: 135px;
+  height: 5.4px;
+  border-radius: 2.7px;
   background: rgba(255, 255, 255, 0.2);
   outline: none;
   cursor: pointer;
@@ -311,8 +372,8 @@
 .speed-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14.4px;
+  height: 14.4px;
   border-radius: 50%;
   background: #3498db;
   cursor: pointer;
@@ -324,8 +385,8 @@
 }
 
 .speed-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14.4px;
+  height: 14.4px;
   border-radius: 50%;
   background: #3498db;
   cursor: pointer;
@@ -342,19 +403,19 @@
   background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
   color: white;
   border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 0.675rem 1.35rem;
+  border-radius: 7.2px;
+  font-size: 0.81rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 1.8px 7.2px rgba(52, 152, 219, 0.3);
   backdrop-filter: blur(10px);
 }
 
 .show-game-over-button:hover {
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.5);
-  transform: translateY(-2px);
+  box-shadow: 0 3.6px 10.8px rgba(52, 152, 219, 0.5);
+  transform: translateY(-1.8px);
 }
 
 .show-game-over-button:active {
@@ -363,16 +424,29 @@
 
 /* AI Hand in Debug Mode */
 .ai-hand.debug-mode {
-  gap: 0.25rem;
+  gap: 0rem;
 }
 
 .ai-hand.debug-mode.vertical {
-  gap: 0.25rem;
+  gap: 0rem;
 }
 
 .ai-card-wrapper {
-  /* transform: scale(0.8); */
   transition: transform 0.2s ease;
+  margin-left: -20.9px; /* Overlap cards in debug mode */
+}
+
+.ai-card-wrapper:first-child {
+  margin-left: 0;
+}
+
+.ai-hand.vertical .ai-card-wrapper {
+  margin-left: 0;
+  margin-top: -31.35px; /* Overlap vertical cards in debug mode */
+}
+
+.ai-hand.vertical .ai-card-wrapper:first-child {
+  margin-top: 0;
 }
 
 /* .ai-card-wrapper:hover {
@@ -383,6 +457,61 @@
 /* Scale down AI cards when in debug mode to fit better */
 .ai-hand.debug-mode .card {
   font-size: 0.8rem;
+}
+
+/* Passing Animation Styles */
+.passing-animation-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.passing-card-animation {
+  position: absolute;
+  z-index: 1001;
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1), opacity 1s ease;
+}
+
+.passing-card-animation.animating {
+  opacity: 0.9;
+}
+
+@keyframes passCard {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+/* Player position classes for calculating animation paths */
+.player-position-bottom {
+  /* Bottom center */
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.player-position-top {
+  /* Top center */
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.player-position-left {
+  /* Left center */
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.player-position-right {
+  /* Right center */
+  grid-column: 3;
+  grid-row: 2;
 }
 
 

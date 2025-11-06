@@ -8,12 +8,21 @@ import PlayerHand from './PlayerHand';
 import TableCenter from './TableCenter';
 import Card from './Card';
 import PassDirectionWidget from './PassDirectionWidget';
+import PassingAnimation from './PassingAnimation';
 import './GameBoard.css';
 
 const GameBoard = () => {
-  const { gameId, gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow, animatedTrick, hasAnimatedInitialTrick } = useGameStore();
+  const { gameId, gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow, animatedTrick, hasAnimatedInitialTrick, passingAnimations } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
   const isAnimatingRef = useRef(false);
+  
+  // Refs for player positions
+  const playerRefs = {
+    bottom: useRef(null),
+    top: useRef(null),
+    left: useRef(null),
+    right: useRef(null)
+  };
 
   // Animate initial cards when board first mounts
   useEffect(() => {
@@ -43,9 +52,28 @@ const GameBoard = () => {
       for (let i = 0; i < trick.length && !cancelled; i++) {
         const [playerId, card] = trick[i];
         console.log(`Animating card ${i}: Player ${playerId}, ${card.rank}${card.suit}`);
-        useGameStore.setState(state => ({ 
-          animatedTrick: [...state.animatedTrick, [playerId, card]] 
-        }));
+        
+        // Immediately remove the card from the player's hand
+        useGameStore.setState(state => {
+          const currentGameState = state.gameState;
+          const updatedPlayers = currentGameState.players.map(player => {
+            if (player.id === playerId) {
+              return {
+                ...player,
+                hand: player.hand.filter(c => c.suit !== card.suit || c.rank !== card.rank)
+              };
+            }
+            return player;
+          });
+          
+          return { 
+            animatedTrick: [...state.animatedTrick, [playerId, card]],
+            gameState: {
+              ...currentGameState,
+              players: updatedPlayers
+            }
+          };
+        });
         await new Promise(resolve => setTimeout(resolve, animationDelay));
       }
       
@@ -100,8 +128,10 @@ const GameBoard = () => {
     }
   };
 
+  const gameBoardRef = useRef(null);
+  
   return (
-    <div className="game-board">
+    <div className="game-board" ref={gameBoardRef}>
       {/* Pass Direction Widget */}
       <PassDirectionWidget />
       
@@ -158,7 +188,7 @@ const GameBoard = () => {
       )}
 
       {/* Top Player (AI) */}
-      <div className="player-area player-top">
+      <div className="player-area player-top" ref={playerRefs.top}>
         <div className="player-info">
           <span className="player-name">{topPlayer?.name}</span>
           <span className="player-score">Score: {topPlayer?.score || 0}</span>
@@ -167,7 +197,7 @@ const GameBoard = () => {
       </div>
 
       {/* Left Player (AI) */}
-      <div className="player-area player-left">
+      <div className="player-area player-left" ref={playerRefs.left}>
         <div className="player-info">
           <span className="player-name">{leftPlayer?.name}</span>
           <span className="player-score">Score: {leftPlayer?.score || 0}</span>
@@ -176,7 +206,7 @@ const GameBoard = () => {
       </div>
 
       {/* Right Player (AI) */}
-      <div className="player-area player-right">
+      <div className="player-area player-right" ref={playerRefs.right}>
         <div className="player-info">
           <span className="player-name">{rightPlayer?.name}</span>
           <span className="player-score">Score: {rightPlayer?.score || 0}</span>
@@ -188,7 +218,7 @@ const GameBoard = () => {
       <TableCenter/>
 
       {/* Bottom Player (Human) */}
-      <div className="player-area player-bottom">
+      <div className="player-area player-bottom" ref={playerRefs.bottom}>
         <div className="player-info">
           <span className="player-name you">{humanPlayer?.name}</span>
           <span className="player-score">Score: {humanPlayer?.score || 0}</span>
@@ -199,6 +229,16 @@ const GameBoard = () => {
           isCurrentPlayer={gameState.current_player === 0}
         />
       </div>
+      
+      {/* Passing Animation Overlay */}
+      {passingAnimations.length > 0 && (
+        <PassingAnimation 
+          animations={passingAnimations}
+          playerRefs={playerRefs}
+          containerRef={gameBoardRef}
+          animationDelay={animationDelay}
+        />
+      )}
 
       {/* Game Over Modal */}
       {gameState.game_over && showGameOverModal && (

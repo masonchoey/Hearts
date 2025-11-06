@@ -108,7 +108,7 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         self.num_outputs = num_outputs
         
         # Get sequence length from config for multi-timestep processing
-        self.seq_len = model_config.get("seq_len", 5)
+        self.seq_len = model_config.get("seq_len", 13)
         self.store_history = model_config.get("store_history", True)
         
         base_space = getattr(obs_space, "original_space", obs_space)
