@@ -14,7 +14,15 @@ import pyspiel
 from gymnasium import spaces
 from open_spiel.python.rl_environment import Environment as OSPSingle
 from typing import Optional, List, Dict, Any
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+sparse_reward = os.getenv("SPARSE_REWARD")
+print(f"SPARSE_REWARD: {sparse_reward}")
+if sparse_reward is None:
+    ERROR("SPARSE_REWARD is not set")
+    exit(1)
 
 class HeartsGymEnvHumanVsAI(gym.Env):
     """A Gymnasium wrapper for Hearts with 1 human player vs 3 AI players.
@@ -146,6 +154,14 @@ class HeartsGymEnvHumanVsAI(gym.Env):
         
         self._last_timestep = ts
         
+        if not sparse_reward:
+        # Track reward from human player's action (before AI moves)
+        # The reward from ts (after human's action) is what we want to return
+            if ts.rewards is not None:
+                human_reward = ts.rewards[self._human_player_id]
+            else:
+                human_reward = 0.0
+        
         # Play AI turns until it's human's turn again or game ends
         while not self._is_human_turn() and not self._last_timestep.last():
             self._play_ai_turn()
@@ -155,15 +171,16 @@ class HeartsGymEnvHumanVsAI(gym.Env):
         truncated = False
         
         if terminated:
-            # Game is over - return final reward for human player
-            human_reward = self._episode_rewards[self._human_player_id]
+            if sparse_reward:
+                human_reward = self._episode_rewards[self._human_player_id]
             obs = {
                 "observations": np.zeros(self.observation_space["observations"].shape, dtype=np.float32),
                 "action_mask": np.zeros(self._num_actions, dtype=np.int8)
             }
         else:
+            if sparse_reward:
             # Game continues - return 0 reward during play (sparse reward at end)
-            human_reward = 0.0
+                human_reward = 0.0
             obs = self._get_human_observation()
         
         info = self._get_info()

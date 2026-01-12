@@ -54,6 +54,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+#markdown files (not readmes)
+*.md
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -142,6 +145,11 @@ PPO_*/
 training_progress_results/
 rl_vs_bots_log/
 wandb/
+rllib_checkpoint.json
+rl_vs_self_bots_results_*.json
+
+#C++ hearts reference files
+hearts_C++_Reference/
 
 # Model checkpoints
 *.pkl
@@ -149,3 +157,9 @@ wandb/
 *.h5
 *.pt
 *.pth
+
+#Wandb logs
+wandb/
+
+#Pool metadata files
+pool_metadata.json

@@ -96,10 +96,10 @@ class HeartsGymEnvSelfPlay(gym.Env):
         if the game is over. All players are assumed to be controlled by the
         same RL agent policy, except when opponent checkpoints are specified.
         
-        Reward Strategy: End-of-round sparse rewards
-        - Returns 0.0 for all intermediate steps
-        - Only provides true game reward at termination
-        - This encourages learning long-term strategic play in Hearts
+        Reward Strategy: Immediate rewards
+        - Returns reward immediately after each action
+        - Rewards are given at the end of tricks/rounds in Hearts
+        - Provides immediate feedback for learning
         """
         ts = self._last_timestep
         current_player = ts.observations["current_player"]
@@ -117,31 +117,29 @@ class HeartsGymEnvSelfPlay(gym.Env):
 
         ts = self._base_env.step([applied_action])
 
-        # Accumulate final game rewards (but don't return them until termination)
+        # Accumulate rewards for episode tracking
         if ts.rewards is not None:
             for i in range(4):
                 # Hearts rewards are penalty points (negative in OpenSpiel)
-                # Accumulate the true game rewards without any shaping
+                # Accumulate the true game rewards for tracking
                 self._episode_rewards[i] += ts.rewards[i]
 
         self._last_timestep = ts
         terminated = ts.last()
         truncated = False  # OpenSpiel environments are episodic, not truncated.
 
+        # Return immediate reward for the current player
+        if ts.rewards is not None:
+            final_reward = ts.rewards[current_player]
+        else:
+            final_reward = 0.0
+
         if terminated:
-            # Game is over - return the final accumulated reward for this player
-            # This is the true game objective: minimize penalty points (negative reward)
-            final_reward = self._episode_rewards[current_player]
-            
             obs = {
                 "observations": np.zeros(self.observation_space["observations"].shape, dtype=np.float32),
                 "action_mask": np.zeros(self._num_actions, dtype=np.int8)
             }
         else:
-            # Game continues - return 0 reward during play
-            # This encourages the agent to learn the full game strategy
-            # rather than optimizing for immediate small rewards
-            final_reward = 0.0
             obs = self._current_obs()
 
         info = {

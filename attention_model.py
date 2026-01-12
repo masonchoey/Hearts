@@ -96,10 +96,20 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
     - Pass direction (4 values)
     - Card representations (52 values each for dealt/passed/received/current hand)
     - Points (144 values - 36 per player)
-    - Trick history (4732 values)
+    - Trick history (4732 values) → NEW: processed as 52 separate per-card tokens
     
-    This allows the model to immediately understand which cards are in its hand,
-    rather than learning this from scratch through backpropagation.
+    Key architectural feature: Per-card processing (Updated 1/9/2026)
+    - Each of the 52 cards in trick history is embedded separately
+    - For each card, we embed: card_id, player_id, trick_idx, play_order
+    - These embeddings are concatenated and projected into a single token
+    - All 52 card tokens are appended to the observation sequence
+    - The transformer can attend to individual card plays, learning patterns like:
+      * Which cards were played by which players
+      * When key cards (Queen of Spades, high hearts) were played
+      * Sequential card play patterns within and across tricks
+    
+    Sequence structure: [obs_t1, obs_t2, ..., obs_tN, card_1, card_2, ..., card_52]
+    Total tokens: seq_len + 52 (default: 13 + 52 = 65 tokens)
     """
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs, model_config, name)
@@ -120,7 +130,7 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         # Verify observation dimension matches expected structure
         assert obs_dim == 5088, f"Expected observation dimension 5088, got {obs_dim}"
 
-        embed_dim = model_config.get("embed_dim", 256)
+        embed_dim = model_config.get("embed_dim", 512)
         num_heads = model_config.get("num_attention_heads", 4)
         num_layers = model_config.get("num_attention_layers", 2)
         
@@ -135,41 +145,51 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         )
         
         # 2. Card representations (52 values each)
-        # Shared embedding for all card-based features (current hand, dealt hand, etc.)
-        card_embed_dim = 64
-        self.card_embed = nn.Sequential(
-            nn.Linear(52, card_embed_dim),
-            nn.LayerNorm(card_embed_dim),
-            nn.ReLU()
-        )
+        # Two types of card embeddings:
+        # a) For binary card vectors (dealt/passed/received/current hand): use linear projection
+        # b) For card indices in trick history: use embedding lookup
+        
+        card_embed_dim = 40
+        trick_embed_dim = 8
+        order_embed_dim = 4
+        self.card_vector_embed = nn.Linear(52, 64)  # Binary card vector -> embedding
+        self.card_embed = nn.Embedding(52, card_embed_dim)  # Card index -> embedding
+        #which trick it is (0-12)
+        self.trick_embed = nn.Embedding(13, trick_embed_dim )
+        #NESWNES order (i think it is that i'm not sure tbh)
+        self.order_embed = nn.Embedding(7, order_embed_dim)
         
         # 3. Points embedding (144 -> 64)
         # Thermometer encoding of scores for all 4 players
         self.points_embed = nn.Sequential(
-            nn.Linear(144, 64),
+            nn.Linear(144, 32),
             nn.ReLU()
         )
         
-        # 4. Trick history embedding (4732 -> 128)
-        # History of all 13 tricks played so far
-        self.trick_history_embed = nn.Sequential(
-            nn.Linear(4732, 128),
-            nn.ReLU()
-        )
+        # 4. Trick-history-per-card embedding - NEW APPROACH (1/9/2026)
+        # Per-card embedding dimension: 40 (card) + 8 (trick) + 4 (order) = 52
+        per_card_embed_dim = card_embed_dim + trick_embed_dim + order_embed_dim  # sum of all embedding dimensions
         
         # Calculate total embedding dimension after concatenation
-        # 16 (pass_dir) + 64*4 (card embeds) + 64 (points) + 128 (tricks) = 464
-        structured_dim = 16 + (card_embed_dim * 4) + 64 + 128
+        # 16 (pass_dir) + 64*4 (card embeds for 4 card features) + 64 (points) = 336
+        # Note: tricks are now separate tokens, not concatenated in base_combined
+        structured_dim = 16 + (64 * 4) + 64
         
         # Project structured features to model embedding dimension
         self.structured_proj = nn.Linear(structured_dim, embed_dim)
         
+        # Project per-card embed tokens to model embedding dimension
+        # Input: concatenated embeddings (40 + 4 + 8 + 4 = 56)
+        self.per_card_embed_token_proj = nn.Linear(per_card_embed_dim, embed_dim)
+        
         # Layer normalization for better training stability
         self.input_norm = nn.LayerNorm(embed_dim)
+        self.per_card_token_norm = nn.LayerNorm(embed_dim)
         
         # 🔹 ADDED: Positional encoding for sequence processing
+        # Max length needs to accommodate: seq_len observation timesteps + 52 card tokens
         self.positional_encoding = PositionalEncoding(
-            embed_dim, max_len=self.seq_len * 2  # Extra buffer
+            embed_dim, max_len=self.seq_len + 52 + 10  # seq_len + 52 cards + buffer
         )
 
         # 🔹 UNCHANGED: Transformer encoder (but now processes sequences properly)
@@ -194,8 +214,6 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
             nn.Linear(embed_dim, num_outputs)
         )
 
-        # 🔹 IMPROVED: More powerful value head to increase explained variance
-        # This is critical - low vf_explained_var was a major issue
         self.value_net = nn.Sequential(
             nn.Linear(embed_dim, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),  # Add normalization for stability
@@ -261,40 +279,75 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
     
     def _embed_structured_obs(self, parsed_obs):
         """
-        Embed each semantic component and concatenate into a unified representation.
+        Embed each semantic component and return base features + per-trick tokens.
         
         Args:
             parsed_obs: dict with parsed observation components
             
         Returns:
-            [batch_size, structured_dim] tensor
+            tuple: (base_embedding [batch_size, structured_dim], 
+                   trick_tokens [batch_size, 13, trick_embed_dim])
         """
+        batch_size = parsed_obs['pass_dir'].size(0)
+        
         # Embed each component
         pass_dir_emb = self.pass_dir_embed(parsed_obs['pass_dir'])  # [B, 16]
         
-        # Embed all card-based features using shared embedding
-        dealt_emb = self.card_embed(parsed_obs['dealt_hand'])  # [B, 64]
-        passed_emb = self.card_embed(parsed_obs['passed_cards'])  # [B, 64]
-        received_emb = self.card_embed(parsed_obs['received_cards'])  # [B, 64]
-        current_emb = self.card_embed(parsed_obs['current_hand'])  # [B, 64] - MOST IMPORTANT!
+        # Embed all card-based features (binary vectors) using linear projection
+        dealt_emb = self.card_vector_embed(parsed_obs['dealt_hand'])  # [B, 64]
+        passed_emb = self.card_vector_embed(parsed_obs['passed_cards'])  # [B, 64]
+        received_emb = self.card_vector_embed(parsed_obs['received_cards'])  # [B, 64]
+        current_emb = self.card_vector_embed(parsed_obs['current_hand'])  # [B, 64] - MOST IMPORTANT!
         
         points_emb = self.points_embed(parsed_obs['points'])  # [B, 64]
-        tricks_emb = self.trick_history_embed(parsed_obs['trick_history'])  # [B, 128]
         
-        # Concatenate all embeddings
-        # Order: pass_dir, current_hand, dealt_hand, passed, received, points, tricks
+
+        #STILL A LOT NEEDS TO BE CHANGED
+        # Process trick history as 52 separate tokens (per-card approach)
+        trick_history = parsed_obs['trick_history']  # [B, 4732]
+        # Each of 91 cards has 52 values: 4732 / 91 = 52 (there are 91 possible card placements with NESWNES * 13 tricks)
+        # NOT in the form of (card_id, player_id, trick_idx, play_order) needs processing.
+        trick_history_reshaped = trick_history.view(batch_size, 91, 52)
+        
+        # Embed each card placement separately. Each card placement is a 52 length one-hot encoded vector without the desired structure.
+        per_card_embed_tokens = []
+        #NEED TO FIX ###########################
+        lead_card = True
+        for card_idx in range(91):
+            card_data = trick_history_reshaped[:, card_idx, :]  # [B, 52]
+            #if the card_data is all zeros (no card was played in this placement), then skip
+            mask = card_data.sum(dim=1) > 0  # [B] bool
+            if mask.sum() == 0:
+                continue
+            else:
+                if lead_card == True:
+                    lead_card = False
+                    lead_player_id = card_idx % 7
+                trick_idx = card_idx // 7  # 7 positions per trick
+                trick_embedding = self.trick_embed(trick_idx)  # [B, trick_embed_dim]
+                # order_embedding = self.order_embed([(i - lead_player_id) % 4 for i in range(7)])
+                order_id = (card_idx - lead_player_id) % 4
+                order_embedding = self.order_embed(order_id)  # [B, order_embed_dim]
+                #extract the card_id, player_id, trick_idx, play_order from the 52 length one-hot encoded vector
+                # card_embedding = self.card_embed(card_data)
+                card_id = card_data.argmax(dim=-1)  # [B]
+                card_embedding = self.card_embed(card_id)  # [B, card_embed_dim]
+                final_card_emb = self.per_card_embed_token_proj(torch.cat([card_embedding, player_embedding, trick_embedding, order_embedding], dim=-1))  # [B, 52]
+                per_card_embed_tokens.append(final_card_emb)
+        
+        # Concatenate base embeddings (everything except tricks)
+        # Order: pass_dir, current_hand, dealt_hand, passed, received, points
         # We put current_hand early because it's the most important for decision making
-        combined = torch.cat([
+        base_combined = torch.cat([
             pass_dir_emb,      # 16
             current_emb,       # 64 - CRITICAL: what cards can we play?
             dealt_emb,         # 64 - what was our original hand?
             passed_emb,        # 64 - what did we pass away?
             received_emb,      # 64 - what did we receive?
             points_emb,        # 64 - current scores
-            tricks_emb         # 128 - what has been played?
-        ], dim=-1)  # Total: 464
+        ], dim=-1)  # Total: 336
         
-        return combined
+        return base_combined, per_card_embed_tokens
 
     def forward(self, input_dict, state, seq_lens):
         obs_tensor = input_dict["obs"]
@@ -316,6 +369,7 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
         # Parse and embed each observation in the sequence
         seq_len = obs_sequence.size(1)
         embedded_sequence = []
+        trick_tokens_embedded = None  # Will store the trick tokens from most recent obs
         
         for t in range(seq_len):
             obs_t = obs_sequence[:, t, :]  # [B, 5088]
@@ -323,19 +377,34 @@ class AttentionMaskModel(TorchModelV2, nn.Module):
             # Parse into structured components
             parsed = self._parse_observation(obs_t)
             
-            # Embed structured components
-            structured_emb = self._embed_structured_obs(parsed)  # [B, 464]
+            # Embed structured components - now returns base embedding + trick tokens
+            base_emb, trick_tokens = self._embed_structured_obs(parsed)  # [B, 336], [B, 52, embed_dim]
             
-            # Project to model embedding dimension
-            emb_t = self.structured_proj(structured_emb)  # [B, embed_dim]
+            # Project base embedding to model embedding dimension
+            emb_t = self.structured_proj(base_emb)  # [B, embed_dim]
+            emb_t = self.input_norm(emb_t)  # Normalize
             
             embedded_sequence.append(emb_t)
+            
+            # Store trick tokens from the most recent observation (last timestep)
+            if t == seq_len - 1:
+                # trick_tokens are already projected to embed_dim in _embed_structured_obs
+                # trick_tokens shape: [B, 52, embed_dim] (52 cards, one token per card)
+                trick_tokens_embedded = self.per_card_token_norm(trick_tokens)  # Normalize
         
-        # Stack into sequence: [B, seq_len, embed_dim]
-        x = torch.stack(embedded_sequence, dim=1)
-        x = self.input_norm(x)  # Normalize for training stability
+        # Stack observation sequence: [B, seq_len, embed_dim]
+        obs_embedded = torch.stack(embedded_sequence, dim=1)
+        
+        # Concatenate observation sequence with trick tokens: [B, seq_len + 52, embed_dim]
+        # Structure: [obs_timestep_1, ..., obs_timestep_N, card_1, ..., card_52]
+        # This allows the transformer to:
+        # 1. Attend across temporal observations (decision history)
+        # 2. Attend to individual card placements in trick history (game history)
+        # 3. Cross-attend between current state and past card plays
+        x = torch.cat([obs_embedded, trick_tokens_embedded], dim=1)
 
         # Apply positional encoding for sequence processing
+        # Encodes position information for both observation timesteps and trick tokens
         x = self.positional_encoding(x)
 
         # Run transformer encoder to capture sequential dependencies
