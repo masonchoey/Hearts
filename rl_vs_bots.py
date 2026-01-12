@@ -53,7 +53,6 @@ from collections import defaultdict
 from ray.rllib.algorithms.ppo import PPO
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.tune.registry import register_env
-from hearts_env_conservative import HeartsGymEnvConservative
 from hearts_env_self_play import HeartsGymEnvSelfPlay
 import torch
 import torch.nn as nn
@@ -206,16 +205,13 @@ class RLvsBotsSimulator:
         self.bot_type = bot_type.lower()
         
         # Register environments
-        register_env("hearts_env_conservative", env_creator_conservative)
         register_env("hearts_env_self_play", env_creator_self_play)
         
         # Build PPO agent with the same custom masked model
         ModelCatalog.register_custom_model("masked_attention_model", AttentionMaskModel)
         
         # Choose environment based on bot type
-        if self.bot_type == "conservative":
-            env_name = "hearts_env_conservative"
-        elif self.bot_type == "self":
+        if self.bot_type == "self":
             env_name = "hearts_env_self_play"
         else:
             raise ValueError(f"Invalid bot type or bot type not specified: {self.bot_type}")
@@ -393,6 +389,15 @@ class RLvsBotsSimulator:
         # Reset agent states for all players
         for player_id in range(4):
             self.agent_states[player_id] = self.agents[player_id].get_policy().get_initial_state()
+            
+            # CRITICAL FIX: Reset the model's internal history buffer
+            # The AttentionMaskModel maintains an obs_history buffer that persists across episodes
+            # If not reset, it causes the value function to stabilize to a constant value
+            policy = self.agents[player_id].get_policy()
+            if hasattr(policy, 'model') and hasattr(policy.model, 'reset_history'):
+                policy.model.reset_history()
+                if debug_rl and player_id == 0:
+                    print(f"   🔄 Reset history buffer for Player {player_id}")
         
         # Track game data
         player_scores = [0, 0, 0, 0]
@@ -437,10 +442,30 @@ class RLvsBotsSimulator:
             print(f"\n🔍 RL DEBUG MODE ENABLED - Detailed RL agent analysis")
             print(f"   Bot Type: {self.bot_type}")
             print(f"   Environment: {type(gym_env).__name__}")
+            
+            # Verify that agents are truly separate instances (not sharing models)
+            print(f"\n🔬 Agent Instance Verification:")
+            for player_id in range(4):
+                policy = self.agents[player_id].get_policy()
+                model = policy.model
+                print(f"   Player {player_id}: Agent ID={id(self.agents[player_id])}, "
+                      f"Policy ID={id(policy)}, Model ID={id(model)}")
+                
+                # Check if models share the same underlying parameters
+                if player_id > 0:
+                    model_0 = self.agents[0].get_policy().model
+                    first_param_0 = next(model_0.value_net.parameters())
+                    first_param = next(model.value_net.parameters())
+                    params_shared = first_param.data_ptr() == first_param_0.data_ptr()
+                    print(f"      → Shares parameters with Player 0: {params_shared}")
         
         game_turn = 0
         done = False
         total_reward = 0
+        
+        # Track value function predictions across timesteps for debugging
+        if debug_rl:
+            value_function_history = []  # Track V(s) over time
         
         # Pure gym environment approach - let the gym handle all game logic
         while not done:
@@ -548,7 +573,7 @@ class RLvsBotsSimulator:
                     
                     # Use gym environment's built-in action masking
                     action, new_agent_state, info_dict = current_agent.get_policy().compute_single_action(
-                        gym_obs, state=current_agent_state, explore=False
+                        gym_obs, state=current_agent_state, explore=True
                     )
                     
                     # Update the agent state for this player
@@ -563,7 +588,16 @@ class RLvsBotsSimulator:
                         if info_dict and 'action_logp' in info_dict:
                             print(f"      Action Log Probability: {info_dict['action_logp']:.4f}")
                         if info_dict and 'vf_preds' in info_dict:
-                            print(f"      Value Function Prediction: {info_dict['vf_preds']:.4f}")
+                            vf_pred = info_dict['vf_preds']
+                            value_function_history.append(vf_pred)
+                            print(f"      Value Function Prediction: {vf_pred:.4f}")
+                            
+                            # Show statistics if we have history
+                            if len(value_function_history) > 1:
+                                vf_min = min(value_function_history)
+                                vf_max = max(value_function_history)
+                                vf_std = np.std(value_function_history)
+                                print(f"      VF Range: [{vf_min:.4f}, {vf_max:.4f}], Std: {vf_std:.4f}")
                         if info_dict and 'action_dist_inputs' in info_dict:
                             print(f"      Action Distribution Input:")
                             for legal_action in legal_actions:
@@ -723,6 +757,24 @@ class RLvsBotsSimulator:
                 print(f"   Total RL Decisions (Player 0): {len(player0_decisions)}")
                 legal_decisions = sum(1 for d in player0_decisions if d['was_legal'])
                 print(f"   Legal Decisions: {legal_decisions}/{len(player0_decisions)} ({100*legal_decisions/len(player0_decisions):.1f}%)")
+                
+                # Value function statistics summary
+                if value_function_history:
+                    print(f"\n   📊 Value Function Statistics (Player 0):")
+                    print(f"      Total VF predictions: {len(value_function_history)}")
+                    print(f"      Min: {min(value_function_history):.4f}")
+                    print(f"      Max: {max(value_function_history):.4f}")
+                    print(f"      Mean: {np.mean(value_function_history):.4f}")
+                    print(f"      Std Dev: {np.std(value_function_history):.4f}")
+                    
+                    # Show if VF is suspiciously constant
+                    if len(value_function_history) > 5:
+                        std_dev = np.std(value_function_history)
+                        if std_dev < 0.01:
+                            print(f"      ⚠️  WARNING: Value function has very low variance!")
+                            print(f"         This suggests the model may not be learning state differences.")
+                        elif std_dev > 0.1:
+                            print(f"      ✅ Value function shows healthy variance across states.")
                 
                 # Show first few and last few decisions
                 if len(player0_decisions) > 6:

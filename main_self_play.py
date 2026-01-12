@@ -48,6 +48,7 @@ from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig, PPO
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from hearts_env_self_play import HeartsGymEnvSelfPlay
 import torch
 import torch.nn as nn
@@ -66,6 +67,22 @@ def env_creator_self_play(env_config):
 
 
 register_env("hearts_env_self_play", env_creator_self_play)
+
+
+class HeartsCallbacks(DefaultCallbacks):
+    """Custom callbacks for Hearts training to properly manage model state.
+    
+    This callback ensures that the attention model's history buffer is properly
+    reset between episodes, preventing the model from seeing observations from
+    previous games in the current game.
+    """
+    
+    def on_episode_start(self, *, worker, base_env, policies, episode, env_index, **kwargs):
+        """Called at the beginning of each episode to reset model history."""
+        # Reset history buffer for all policies that have the reset_history method
+        for policy_id, policy in policies.items():
+            if hasattr(policy, 'model') and hasattr(policy.model, 'reset_history'):
+                policy.model.reset_history()
 
 # ============================================================================
 # HYPERPARAMETERS - Centralized configuration
@@ -382,6 +399,7 @@ def main():
             num_env_runners=NUM_ENV_RUNNERS,
             num_envs_per_env_runner=NUM_ENVS_PER_RUNNER,
         )
+        .callbacks(HeartsCallbacks)
         .resources(
             # Note: Ray doesn't recognize MPS as a GPU resource, but PyTorch will
             # still use MPS automatically when available. We just don't request
