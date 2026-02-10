@@ -12,7 +12,7 @@ Developing an RL training pipeline with Ray RLlib + PyTorch to train PPO agents 
   - FastAPI backend with OpenSpiel integration
   - Real-time gameplay with 3 AI opponents
 
-## 📚 Documentation
+## Documentation
 
 - **[DOCS_INDEX.md](DOCS_INDEX.md)** - Complete documentation index
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
