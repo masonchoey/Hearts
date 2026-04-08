@@ -163,3 +163,4 @@ wandb/
 
 #Pool metadata files
 pool_metadata.json
+*.json
