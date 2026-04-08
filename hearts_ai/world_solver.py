@@ -520,6 +520,72 @@ class WorldSolver:
             return pts
         return pts + evaluate_hand(hand, play, agent_id)
 
+    def solve_playstate(
+        self,
+        play: PlayState,
+        agent_id: int,
+        real_legal: Optional[List[int]] = None,
+        time_deadline: Optional[float] = None,
+    ) -> Tuple[int, Dict[int, float]]:
+        """
+        Run alpha-beta minimax directly on a PlayState (no OpenSpiel state needed).
+
+        Unlike ``best_move``, which reconstructs a PlayState from an OpenSpiel
+        observation + world dict, this method accepts a fully-known PlayState
+        directly.  Used by the DMCTS loop and the pre-training MCTS player.
+
+        Args:
+            play:          Fully-known PlayState (determinized world).
+            agent_id:      The player whose points we are minimising.
+            real_legal:    Legal actions in the *real* game state.  When
+                           provided, only actions in this set are explored so
+                           we never return a card that is illegal in reality.
+            time_deadline: Optional ``time.perf_counter()`` deadline; search
+                           is cut short if exceeded.
+
+        Returns:
+            (best_action, action_scores) where action_scores maps each explored
+            action to its minimax value (lower = better for agent_id).
+        """
+        self.nodes_visited = 0
+        self.memo_hits     = 0
+        self.ab_cutoffs    = 0
+        self._node_count   = 0
+
+        legal = play.legal_actions()
+        if real_legal is not None:
+            real_set = set(real_legal)
+            legal    = [a for a in legal if a in real_set]
+            if not legal:
+                legal = list(real_legal)
+                return legal[0], {}
+        if not legal:
+            return 0, {}
+        if len(legal) == 1:
+            return legal[0], {legal[0]: float("inf")}
+
+        best_action   = legal[0]
+        best_val      = float("inf")
+        action_scores: Dict[int, float] = {}
+        memo: dict    = {}
+
+        for action in self._order_actions(play, legal):
+            if time_deadline is not None and time.perf_counter() >= time_deadline:
+                break
+            undo = play.apply_action_inplace(action)
+            val  = self._minimax(
+                play, agent_id, depth=1,
+                alpha=-1e9, beta=1e9,
+                memo=memo, time_deadline=time_deadline,
+            )
+            play.undo_action(undo)
+            action_scores[action] = val
+            if val < best_val:
+                best_val    = val
+                best_action = action
+
+        return best_action, action_scores
+
 
 def _legal_actions_from_state(state: Any, agent_id: int) -> List[int]:
     """Extract legal actions from state (timestep or game)."""

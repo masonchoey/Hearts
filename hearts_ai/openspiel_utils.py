@@ -157,6 +157,10 @@ def get_current_trick(state: Any, player_id: int = 0) -> List[Tuple[int, int]]:
 def _get_obs_from_state(state: Any, player_id: int) -> Optional[np.ndarray]:
     if state is None:
         return None
+    # Already the per-player observation tensor (e.g. from ts.observations["info_state"][cp]).
+    # Raw arrays are not wrapped in a timestep, so the branches below would return None.
+    if isinstance(state, np.ndarray):
+        return np.asarray(state, dtype=np.float32)
     if hasattr(state, "observations") and isinstance(state.observations, dict):
         info = state.observations.get("info_state")
         if info is not None:
