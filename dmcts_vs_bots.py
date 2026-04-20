@@ -21,13 +21,25 @@ USAGE:
    VERBOSE_FREQ=1 NUM_GAMES=5 python dmcts_vs_bots.py
 
 ENVIRONMENT VARIABLES: (no defaults, all must be set explicitly through .env file)
-- BOT_TYPE:       "random" or "conservative"
-- NUM_GAMES:      number of games to play
-- N_WORLDS:       DMCTS determinizations
-- TIME_LIMIT_MS:  DMCTS time budget per move
-- HEARTS_DEBUG:   "1" adds remaining-cards detail inside each trick
-- MAX_DEPTH:      DMCTS search depth
-- VERBOSE_FREQ:   show full game output every N games
+- BOT_TYPE:              "random", "conservative", or "heuristic"
+                         "heuristic" plays greedily using evaluate_hand — no search,
+                         just picks whichever legal card leaves the lowest danger score
+- NUM_GAMES:             number of games to play
+- N_WORLDS:              DMCTS determinizations
+- TIME_LIMIT_MS:         DMCTS time budget per move
+- HEARTS_DEBUG:          "1" adds remaining-cards detail inside each trick
+- MAX_DEPTH:             DMCTS search depth
+- VERBOSE_FREQ:          show full game output every N games
+- ALPHAZERO_CHECKPOINT:  path to a HeartsNet .pt checkpoint; defaults to
+                         "alphazero_checkpoints/iter_0008.pt".
+                         When the checkpoint loads successfully two heuristics
+                         are replaced by the network:
+                           • depth-cutoff evaluator: HeartsNet value head
+                             (replaces evaluate_hand from starterheartsheuristic)
+                           • passing-phase policy:   HeartsNet policy head
+                             (replaces the hard-coded "pass highest point card" rule)
+                         Set to "" or a non-existent path to disable and fall back
+                         to the original hand-coded heuristics.
 """
 
 from dotenv import load_dotenv
@@ -50,12 +62,18 @@ except ImportError:
     sys.exit(1)
 
 from hearts_ai.agent import HeartsAgent
+from hearts_ai.alphazero.net import HeartsNet, OBS_DIM
 from hearts_ai.openspiel_utils import (
+    OBS_CURRENT_HAND,
     card_points,
     card_to_rank,
     card_to_suit,
     cards_in_hand_from_obs,
+    get_current_trick_from_obs,
+    get_trick_history_from_obs,
 )
+from hearts_ai.starterheartsheuristic import evaluate_hand
+from hearts_ai.world_solver import WorldSolver
 
 # HEARTS_DEBUG=1 enables remaining-cards detail inside tricks
 DEBUG = os.environ.get("HEARTS_DEBUG", "").strip().lower() in ("1", "true", "yes")
@@ -134,13 +152,40 @@ def _trick_pts(trick: list) -> int:
 # Bot strategies
 # ---------------------------------------------------------------------------
 
-def bot_random(legal_actions):
-    return random.choice(legal_actions)
+def _extract_play_context(ts, cp: int):
+    """
+    Build a minimal play-context object from an OpenSpiel timestep for use with
+    ``evaluate_hand``.  Only ``num_played`` and ``hearts_broken`` are needed;
+    everything else is duck-typed away.
+    """
+    import types
+    obs = np.asarray(ts.observations["info_state"][cp], dtype=np.float32)
+    trick_history = get_trick_history_from_obs(obs)
+    current_trick = get_current_trick_from_obs(obs)
+    num_played = len(trick_history) * 4 + len(current_trick)
+    hearts_broken = False
+    for trick in trick_history:
+        for _, c in trick:
+            if card_to_suit(c) == HEARTS_SUIT or c == QUEEN_OF_SPADES:
+                hearts_broken = True
+                break
+        if hearts_broken:
+            break
+    if not hearts_broken:
+        for _, c in current_trick:
+            if card_to_suit(c) == HEARTS_SUIT or c == QUEEN_OF_SPADES:
+                hearts_broken = True
+                break
+    return types.SimpleNamespace(num_played=num_played, hearts_broken=hearts_broken)
 
 
-def bot_conservative(legal_actions):
+def bot_random(legal, ts=None, cp=None):
+    return random.choice(legal)
+
+
+def bot_conservative(legal, ts=None, cp=None):
     """Avoid point cards; prefer lower cards."""
-    options = list(legal_actions)
+    options = list(legal)
     non_queen = [a for a in options if a != QUEEN_OF_SPADES]
     if non_queen and QUEEN_OF_SPADES in options:
         options = non_queen
@@ -151,10 +196,81 @@ def bot_conservative(legal_actions):
     return random.choice(options[: max(1, len(options) // 2)])
 
 
+def bot_heuristic(legal, ts, cp):
+    """
+    Greedy heuristic bot: play the card that leaves the lowest ``evaluate_hand``
+    danger score on the remaining hand.  Uses the same structured evaluation
+    function that drives the DMCTS depth-cutoff — no search required.
+
+    For each candidate action the bot imagines discarding that card and scores
+    the resulting hand.  The card whose removal most reduces expected point
+    exposure is chosen.  Ties are broken by lowest card rank.
+    """
+    obs = np.asarray(ts.observations["info_state"][cp], dtype=np.float32)
+    hand = set(cards_in_hand_from_obs(obs))
+    ctx = _extract_play_context(ts, cp)
+
+    best_action = legal[0]
+    best_score = float("inf")
+    for action in legal:
+        remaining = hand - {action}
+        score = evaluate_hand(remaining, ctx, cp) if remaining else 0.0
+        if score < best_score or (
+            score == best_score and card_to_rank(action) < card_to_rank(best_action)
+        ):
+            best_score = score
+            best_action = action
+    return best_action
+
+
 BOT_STRATEGIES = {
     "random": bot_random,
     "conservative": bot_conservative,
+    "heuristic": bot_heuristic,
 }
+
+
+# ---------------------------------------------------------------------------
+# AlphaZero evaluation replacement
+# ---------------------------------------------------------------------------
+
+class NNWorldSolver(WorldSolver):
+    """
+    WorldSolver variant that replaces the ``evaluate_hand`` depth-cutoff
+    heuristic with ``HeartsNet``'s value head.
+
+    At each depth-limit leaf the network predicts the agent's expected future
+    point contribution given the current hand (partial observation: only the
+    current-hand slice [160:212] of the 5088-dim OpenSpiel vector is populated;
+    trick-history and other slices are zeroed).  The network was pre-trained
+    with trick-history dropout (p=0.3), so it is robust to this sparse input.
+
+    A per-game dict cache keyed by the agent's hand bitmask avoids redundant
+    forward passes when the same hand state appears in multiple minimax paths.
+    """
+
+    def __init__(self, max_depth, net: HeartsNet):
+        super().__init__(max_depth=max_depth)
+        self.net = net
+        self._value_cache: dict = {}
+
+    def _estimate_score(self, play, agent_id: int) -> float:
+        pts = float(play.points.get(agent_id, 0))
+        hand = play.hands[agent_id]
+        if not hand:
+            return pts
+
+        key = play.hand_masks[agent_id]
+        if key in self._value_cache:
+            return pts + self._value_cache[key]
+
+        features = np.zeros(OBS_DIM, dtype=np.float32)
+        for card in hand:
+            features[OBS_CURRENT_HAND[0] + card] = 1.0
+
+        future_pts = self.net.predict_value(features)
+        self._value_cache[key] = future_pts
+        return pts + future_pts
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +338,14 @@ def _print_remaining_unseen_cards(my_hand: list, played: set, indent: str = "   
 class DMCTSSimulator:
     """Run Hearts games: DMCTS agent (player 0) vs bots (players 1-3)."""
 
-    def __init__(self, bot_type: str, n_worlds: int, time_limit_ms: int, max_depth: int):
+    def __init__(
+        self,
+        bot_type: str,
+        n_worlds: int,
+        time_limit_ms: int,
+        max_depth: int,
+        checkpoint_path: str = "",
+    ):
         if bot_type not in BOT_STRATEGIES:
             raise ValueError(
                 f"Unknown bot type '{bot_type}'. Choose from: {list(BOT_STRATEGIES)}"
@@ -237,6 +360,41 @@ class DMCTSSimulator:
         self.total_agent_moves = 0
         self.total_agent_time = 0.0
 
+        # Load AlphaZero checkpoint (if provided and file exists).
+        self.net: HeartsNet | None = None
+        self.nn_solver: NNWorldSolver | None = None
+        self.checkpoint_path = checkpoint_path
+        if checkpoint_path:
+            if os.path.isfile(checkpoint_path):
+                try:
+                    self.net = HeartsNet.load(checkpoint_path)
+                    self.nn_solver = NNWorldSolver(max_depth=max_depth, net=self.net)
+                    print(f"  AlphaZero checkpoint loaded: {checkpoint_path}")
+                    print("  Depth-cutoff evaluator: HeartsNet value head  (replaces evaluate_hand)")
+                    print("  Passing-phase policy:   HeartsNet policy head (replaces point-max heuristic)")
+                except Exception as exc:
+                    print(f"  WARNING: failed to load checkpoint '{checkpoint_path}': {exc}")
+                    print("  Falling back to hard-coded heuristic (evaluate_hand).")
+            else:
+                print(f"  WARNING: checkpoint not found: '{checkpoint_path}'")
+                print("  Falling back to hard-coded heuristic (evaluate_hand).")
+
+    # ------------------------------------------------------------------
+    # NN helpers
+    # ------------------------------------------------------------------
+
+    def _nn_action(self, ts, legal: list, player_id: int = 0) -> int:
+        """
+        Use ``HeartsNet`` policy head to choose among *legal* actions.
+        Called for passing-phase decisions when a checkpoint is loaded.
+        """
+        obs = np.asarray(ts.observations["info_state"][player_id], dtype=np.float32)
+        legal_mask = np.zeros(52, dtype=bool)
+        for c in legal:
+            legal_mask[c] = True
+        probs, _ = self.net.predict(obs, legal_mask=legal_mask)
+        return max(legal, key=lambda c: probs[c])
+
     # ------------------------------------------------------------------
     # Single game
     # ------------------------------------------------------------------
@@ -249,6 +407,13 @@ class DMCTSSimulator:
             time_limit_ms=self.time_limit_ms,
             max_depth=self.max_depth,
         )
+
+        # Replace the depth-cutoff heuristic with the NN value head when a
+        # checkpoint is loaded.  Reset the inference cache for each new game
+        # so stale entries from previous games don't carry over.
+        if self.nn_solver is not None:
+            agent.dmcts.solver = self.nn_solver
+            self.nn_solver._value_cache = {}
 
         ts = env.reset()
         agent.reset(initial_hand=None)
@@ -264,10 +429,14 @@ class DMCTSSimulator:
         agent_turns = 0
         step = 0
 
+        agent_label = "AZ+DMCTS" if self.nn_solver is not None else "DMCTS"
+
         if verbose:
             print(f"\n{'═'*60}")
-            print(f"  New game  |  DMCTS (P0) vs {self.bot_type} bots (P1–P3)")
+            print(f"  New game  |  {agent_label} (P0) vs {self.bot_type} bots (P1–P3)")
             print(f"  n_worlds={self.n_worlds}  time_limit={self.time_limit_ms}ms  max_depth={self.max_depth}")
+            if self.nn_solver is not None:
+                print(f"  eval=HeartsNet({self.checkpoint_path})")
             print(f"{'═'*60}")
 
         while not ts.last() and step < 250:
@@ -289,7 +458,14 @@ class DMCTSSimulator:
             # ── Get action and display ─────────────────────────────────
             if cp == 0:
                 t0 = time.perf_counter()
-                action = agent.step(ts)
+
+                # Passing phase: use NN policy head when checkpoint is loaded,
+                # otherwise fall back to the agent's built-in point-max heuristic.
+                if is_passing and self.net is not None:
+                    action = self._nn_action(ts, legal, player_id=0)
+                else:
+                    action = agent.step(ts)
+
                 dt = time.perf_counter() - t0
                 agent_time += dt
                 if not is_passing:
@@ -298,7 +474,8 @@ class DMCTSSimulator:
                     self.total_agent_time += dt
 
                 if verbose and is_passing:
-                    print(f"  [pass]  P0 passes: {show_card(action)}")
+                    src = "NN" if self.net is not None else "heuristic"
+                    print(f"  [pass]  P0 passes ({src}): {show_card(action)}")
 
                 elif verbose:
                     leading = len(current_trick) == 0
@@ -312,7 +489,7 @@ class DMCTSSimulator:
                     hand = cards_in_hand_from_obs(obs_arr)
                     hand_str = fmt_hand(hand) if hand else "(unknown)"
 
-                    print(f"\n  ── P0 [DMCTS] {ctx} ──")
+                    print(f"\n  ── P0 [{agent_label}] {ctx} ──")
                     print(f"       Hand  ({len(hand):2d}): {hand_str}")
                     legal_str = "  ".join(show_card(c) for c in sorted(legal))
                     print(f"       Legal ({len(legal):2d}): {legal_str}")
@@ -333,7 +510,8 @@ class DMCTSSimulator:
                         cuts = agent.dmcts.last_ab_cutoffs
                         hit_pct = hits / max(nodes, 1) * 100
                         cut_pct = cuts / max(nodes, 1) * 100
-                        print(f"       Solver:  {nodes:,} nodes  memo_hit={hit_pct:.0f}%  α/β_cut={cut_pct:.0f}%")
+                        eval_tag = "NN+αβ" if self.nn_solver is not None else "heur+αβ"
+                        print(f"       Solver ({eval_tag}):  {nodes:,} nodes  memo_hit={hit_pct:.0f}%  α/β_cut={cut_pct:.0f}%")
 
                     if DEBUG:
                         _print_remaining_point_cards(all_played)
@@ -342,7 +520,7 @@ class DMCTSSimulator:
                     print(f"       → Plays: {show_card(action)}   ({dt*1000:.0f}ms)")
 
             else:
-                action = self.bot_fn(legal)
+                action = self.bot_fn(legal, ts, cp)
 
                 if verbose and is_passing:
                     print(f"  [pass]  P{cp} passes: {show_card(action)}")
@@ -405,7 +583,7 @@ class DMCTSSimulator:
                 tag = "  ← winner!" if i in winners else ""
                 print(f"    P{i} [{label:12s}]: {scores[i]:2d} pts  (rank {rank}){tag}")
             print(f"  {'─'*56}")
-            print(f"  DMCTS: {agent_turns} decisions  |  avg {agent_time/max(agent_turns,1)*1000:.0f}ms/move  |  total {agent_time:.1f}s")
+            print(f"  {agent_label}: {agent_turns} decisions  |  avg {agent_time/max(agent_turns,1)*1000:.0f}ms/move  |  total {agent_time:.1f}s")
             print(f"  {'═'*56}")
 
         EXPECTED = 6.5
@@ -428,9 +606,12 @@ class DMCTSSimulator:
     # ------------------------------------------------------------------
 
     def run_simulation(self, num_games: int, verbose_freq: int = 10) -> dict:
+        agent_label = "AZ+DMCTS" if self.nn_solver is not None else "DMCTS"
         print(f"\n{'='*60}")
-        print(f"  DMCTS vs {self.bot_type} bots  |  {num_games} games")
+        print(f"  {agent_label} vs {self.bot_type} bots  |  {num_games} games")
         print(f"  n_worlds={self.n_worlds}  time_limit={self.time_limit_ms}ms  max_depth={self.max_depth}")
+        if self.nn_solver is not None:
+            print(f"  eval=HeartsNet  checkpoint={self.checkpoint_path}")
         print(f"  HEARTS_DEBUG={'on — remaining cards shown per trick' if DEBUG else 'off'}")
         print(f"{'='*60}")
 
@@ -518,12 +699,13 @@ class DMCTSSimulator:
             },
         }
 
+        agent_label = "AZ+DMCTS" if self.nn_solver is not None else "DMCTS"
         print("\n" + "=" * 60)
-        print(f"  RESULTS: DMCTS vs {self.bot_type} bots  ({n} games)")
+        print(f"  RESULTS: {agent_label} vs {self.bot_type} bots  ({n} games)")
         print("=" * 60)
 
         a = analysis["agent"]
-        print(f"\n  DMCTS Agent (Player 0):")
+        print(f"\n  {agent_label} Agent (Player 0):")
         print(f"    Avg score:          {a['avg_score']:.2f} ± {a['std_score']:.2f}")
         print(f"    Best / Worst:       {a['best_score']} / {a['worst_score']}")
         print(f"    Avg rank:           {a['avg_rank']:.2f}/4")
@@ -593,11 +775,15 @@ def main():
     time_limit_ms = int(os.environ.get("TIME_LIMIT_MS"))
     verbose_freq = int(os.environ.get("VERBOSE_FREQ"))
     max_depth = int(os.environ.get("MAX_DEPTH"))
+    checkpoint_path = os.environ.get(
+        "ALPHAZERO_CHECKPOINT", "alphazero_checkpoints/iter_0012.pt"
+    )
 
     print("DMCTS vs Bots  |  Hearts Simulation")
     print(f"  BOT_TYPE={bot_type}  NUM_GAMES={num_games}")
     print(f"  N_WORLDS={n_worlds}  TIME_LIMIT_MS={time_limit_ms}ms")
     print(f"  VERBOSE_FREQ={verbose_freq}  HEARTS_DEBUG={'on' if DEBUG else 'off'}")
+    print(f"  ALPHAZERO_CHECKPOINT={checkpoint_path}")
 
     try:
         sim = DMCTSSimulator(
@@ -605,6 +791,7 @@ def main():
             n_worlds=n_worlds,
             time_limit_ms=time_limit_ms,
             max_depth=max_depth,
+            checkpoint_path=checkpoint_path,
         )
     except ValueError as e:
         print(f"ERROR: {e}")
