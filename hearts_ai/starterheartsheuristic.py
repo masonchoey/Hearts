@@ -107,21 +107,21 @@ QOS_ESTIMATED_RIGHT          = -1.0  # Best: they play before you, you can react
 QOS_LOCATION_KNOWN_BONUS     = -1.5  # Knowing exactly where it is reduces surprise
  
  
-# ---------------------------------------------------------------------------
-# 6. SHOOT THE MOON DETECTION
-# ---------------------------------------------------------------------------
-# If YOU might be shooting, your evaluation should invert: points = good.
-# If an OPPONENT might be shooting, you need to interfere.
+# # ---------------------------------------------------------------------------
+# # 6. SHOOT THE MOON DETECTION (DISABLED FOR NOW, TOO COMPLICATED)
+# # ---------------------------------------------------------------------------
+# # If YOU might be shooting, your evaluation should invert: points = good.
+# # If an OPPONENT might be shooting, you need to interfere.
  
-# Thresholds to flag potential shooting
-SHOOT_MIN_HEARTS_FOR_ALERT   =  6    # Holding this many hearts triggers moon check
-SHOOT_MIN_HIGH_CARDS         =  3    # High cards (A/K/Q across suits) needed alongside
-SHOOT_SELF_INVERT_MULTIPLIER = -0.9  # Multiply your heart danger by this if shooting
+# # Thresholds to flag potential shooting
+# SHOOT_MIN_HEARTS_FOR_ALERT   =  6    # Holding this many hearts triggers moon check
+# SHOOT_MIN_HIGH_CARDS         =  3    # High cards (A/K/Q across suits) needed alongside
+# SHOOT_SELF_INVERT_MULTIPLIER = -0.9  # Multiply your heart danger by this if shooting
  
-# Opponent shoot risk: how many hearts + points they've taken so far
-OPPONENT_SHOOT_HEARTS_TAKEN_ALERT  =  5   # If opponent has taken this many hearts...
-OPPONENT_SHOOT_NO_OTHER_POINTS     =  1   # ...and this few non-heart points, alert
-OPPONENT_SHOOT_INTERFERENCE_VALUE  =  8.0 # How important it is to give them a trick
+# # Opponent shoot risk: how many hearts + points they've taken so far
+# OPPONENT_SHOOT_HEARTS_TAKEN_ALERT  =  5   # If opponent has taken this many hearts...
+# OPPONENT_SHOOT_NO_OTHER_POINTS     =  1   # ...and this few non-heart points, alert
+# OPPONENT_SHOOT_INTERFERENCE_VALUE  =  8.0 # How important it is to give them a trick
  
  
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ INFERRED_VOID_WEIGHT                = 0.7  # Scale danger by this if void is inf
 # Leading a trick vs. following changes how dangerous certain holdings are.
  
 LEADING_WITH_NO_SAFE_CARD    =  3.0  # You must lead but have no card below 7
-LEADING_HEARTS_WHEN_UNBROKEN =  4.0  # Illegal + indicates poor hand structure model
+LEADING_HEARTS_WHEN_UNBROKEN =  2.0  # Illegal + indicates poor hand structure model
 HOLDING_2_OF_CLUBS           =  1.5  # Forced to lead trick 1; slight constraint penalty
  
 # Following: danger of being "sandwiched" (dangerous card on your right)
@@ -322,11 +322,11 @@ def evaluate_hand(hand: set, play, agent_id: int) -> float:
                 else:
                     score += VOID_BASE_VALUE * void_mult
 
-    # ── 5. Shoot-the-moon check ───────────────────────────────────────────
-    # If we look like a moon-shot candidate, invert most of the heart danger:
-    # holding lots of hearts is a sign of strength, not exposure.
-    high_card_count = sum(1 for c in hand if card_to_rank(c) >= 10)  # Q, K, A across suits
-    if len(hearts) >= SHOOT_MIN_HEARTS_FOR_ALERT and high_card_count >= SHOOT_MIN_HIGH_CARDS:
-        score += heart_danger * SHOOT_SELF_INVERT_MULTIPLIER * PHASE_MULTIPLIER_MOON_SHOOT[phase]
+    # # ── 5. Shoot-the-moon check ───────────────────────────────────────────
+    # # If we look like a moon-shot candidate, invert most of the heart danger:
+    # # holding lots of hearts is a sign of strength, not exposure.
+    # high_card_count = sum(1 for c in hand if card_to_rank(c) >= 10)  # Q, K, A across suits
+    # if len(hearts) >= SHOOT_MIN_HEARTS_FOR_ALERT and high_card_count >= SHOOT_MIN_HIGH_CARDS:
+    #     score += heart_danger * SHOOT_SELF_INVERT_MULTIPLIER * PHASE_MULTIPLIER_MOON_SHOOT[phase]
 
     return max(SCORE_CLAMP_MIN, min(SCORE_CLAMP_MAX, score))
