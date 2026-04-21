@@ -21,8 +21,7 @@ load_dotenv()
 sparse_reward = os.getenv("SPARSE_REWARD")
 print(f"SPARSE_REWARD: {sparse_reward}")
 if sparse_reward is None:
-    ERROR("SPARSE_REWARD is not set")
-    exit(1)
+    raise RuntimeError("SPARSE_REWARD is not set (check .env)")
 
 class HeartsGymEnvHumanVsAI(gym.Env):
     """A Gymnasium wrapper for Hearts with 1 human player vs 3 AI players.
@@ -106,7 +105,13 @@ class HeartsGymEnvHumanVsAI(gym.Env):
         self._last_timestep = ts
         self._episode_rewards = [0.0, 0.0, 0.0, 0.0]
         self._game_history = []
-        
+
+        # Give the AI model a chance to reset per-episode state (belief states,
+        # DMCTS caches, etc.).  Legacy single-policy models don't implement
+        # this hook, so treat it as optional.
+        if self._ai_model is not None and hasattr(self._ai_model, "reset_episode"):
+            self._ai_model.reset_episode()
+
         # If the human player is not first, play AI turns until human's turn
         while not self._is_human_turn() and not self._last_timestep.last():
             self._play_ai_turn()
@@ -211,16 +216,20 @@ class HeartsGymEnvHumanVsAI(gym.Env):
         # Get AI player's observation and legal actions
         obs = np.array(self._last_timestep.observations["info_state"][current_player], dtype=np.float32)
         legal_actions = self._last_timestep.observations["legal_actions"][current_player]
-        
-        # Get action from AI model
+
+        # Prefer seat-aware models (e.g. DMCTSOpponentController) that need the
+        # full OpenSpiel timestep; fall back to the legacy single-policy
+        # signature (HeartsAIModel) and finally to a random policy.
         if self._ai_model is not None:
             try:
-                action = self._ai_model.get_action(obs, legal_actions)
+                if hasattr(self._ai_model, "choose_action"):
+                    action = self._ai_model.choose_action(self._last_timestep, current_player)
+                else:
+                    action = self._ai_model.get_action(obs, legal_actions)
             except Exception as e:
                 print(f"Error getting AI action: {e}. Using random action.")
                 action = np.random.choice(legal_actions)
         else:
-            # Fallback to random if no model
             action = np.random.choice(legal_actions)
         
         # Apply AI action

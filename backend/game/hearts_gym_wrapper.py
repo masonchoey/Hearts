@@ -12,40 +12,41 @@ from typing import Optional, List, Dict, Any
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from .hearts_env_human_vs_ai import HeartsGymEnvHumanVsAI
-from ..models.hearts_model import HeartsAIModel
+from ..models.dmcts_opponent_controller import DMCTSOpponentController
 
 
 class HeartsGymWrapper:
     """
     Wrapper that integrates the Gymnasium environment with the backend.
-    
-    This class provides a bridge between the backend's game state management
-    and the Gymnasium environment for real-time AI inference.
+
+    The opponent seats are driven by ``DMCTSOpponentController``, which runs
+    three independent ``HeartsAgent`` players sharing an AlphaZero
+    ``HeartsNet`` checkpoint (``ALPHAZERO_CHECKPOINT`` in the environment).
+    Search hyperparameters (``N_WORLDS``, ``TIME_LIMIT_MS``, ``MAX_DEPTH``)
+    are also read from the environment, mirroring ``dmcts_vs_bots.py``.
     """
-    
+
     def __init__(self, checkpoint_path: Optional[str] = None, human_player_id: int = 0, eager_load: bool = True):
         """
         Initialize the Gymnasium wrapper.
-        
+
         Args:
-            checkpoint_path: Path to trained model checkpoint
-            human_player_id: Which player is the human (0-3)
-            eager_load: If True, load AI model immediately for low latency
+            checkpoint_path: Unused.  Opponent configuration is read from
+                the environment (see ``DMCTSOpponentController``).  Kept in
+                the signature for backwards compatibility with existing
+                callers (e.g. ``GameStateManager``).
+            human_player_id: Which player is the human (0-3).
+            eager_load: Unused for DMCTS (there is no heavy lazy load step).
+                Kept for signature compatibility.
         """
         self.human_player_id = human_player_id
-        
-        # Initialize AI model if checkpoint provided
-        self.ai_model = None
-        if checkpoint_path and os.path.exists(checkpoint_path):
-            print(f"Loading AI model from: {checkpoint_path} (eager_load={eager_load})")
-            self.ai_model = HeartsAIModel(checkpoint_path=checkpoint_path, eager_load=eager_load)
-        else:
-            print("Warning: No valid checkpoint path. AI will use random policy.")
-        
-        # Create environment
+        del checkpoint_path, eager_load  # retained for compat; see docstring
+
+        self.ai_model = DMCTSOpponentController(human_player_id=human_player_id)
+
         env_config = {
             "ai_model": self.ai_model,
-            "human_player_id": human_player_id
+            "human_player_id": human_player_id,
         }
         self.env = HeartsGymEnvHumanVsAI(env_config=env_config)
         

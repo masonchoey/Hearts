@@ -76,9 +76,9 @@ class GameStateManager:
         # Create initial game state for frontend
         players = [
             Player(id=0, name="You", is_ai=False, hand=[], score=0, round_score=0),
-            Player(id=1, name="AI 1", is_ai=True, hand=[], score=0, round_score=0),
-            Player(id=2, name="AI 2", is_ai=True, hand=[], score=0, round_score=0),
-            Player(id=3, name="AI 3", is_ai=True, hand=[], score=0, round_score=0),
+            Player(id=1, name="DMCTS 1", is_ai=True, hand=[], score=0, round_score=0),
+            Player(id=2, name="DMCTS 2", is_ai=True, hand=[], score=0, round_score=0),
+            Player(id=3, name="DMCTS 3", is_ai=True, hand=[], score=0, round_score=0),
         ]
         
         # Get hands from the wrapper's internal game

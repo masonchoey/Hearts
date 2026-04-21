@@ -62,9 +62,13 @@ except ImportError:
     sys.exit(1)
 
 from hearts_ai.agent import HeartsAgent
-from hearts_ai.alphazero.net import HeartsNet, OBS_DIM
+from hearts_ai.alphazero.net import HeartsNet
+from hearts_ai.dmcts_alphazero_bridge import (
+    NNValueWorldSolver,
+    is_passing_phase_for_player,
+    nn_pass_action,
+)
 from hearts_ai.openspiel_utils import (
-    OBS_CURRENT_HAND,
     card_points,
     card_to_rank,
     card_to_suit,
@@ -87,23 +91,8 @@ HEARTS_CARDS = [c for c in range(52) if card_to_suit(c) == HEARTS_SUIT]
 
 
 def _is_in_passing_phase(ts, cp: int) -> bool:
-    """
-    Determine if player `cp` is currently in the passing phase using their own
-    observation slice — the same logic agent._is_passing_phase uses for P0.
-    Works for any player without needing a step counter or in_play_phase flag.
-    """
-    obs_all = ts.observations.get("info_state")
-    if obs_all is None:
-        return False
-    o = np.asarray(obs_all[cp], dtype=np.float32)
-    if len(o) < 160:
-        return False
-    # pass_dir[0] == 1 means "No Pass" round — never passing
-    if o[0] >= 0.99:
-        return False
-    passed = float(np.sum(o[56:108]))
-    received = float(np.sum(o[108:160]))
-    return passed < 3 or received < 3
+    """Determine if player ``cp`` is in the passing phase (delegates to bridge)."""
+    return is_passing_phase_for_player(ts, cp)
 
 
 # ---------------------------------------------------------------------------
@@ -234,43 +223,10 @@ BOT_STRATEGIES = {
 # AlphaZero evaluation replacement
 # ---------------------------------------------------------------------------
 
-class NNWorldSolver(WorldSolver):
-    """
-    WorldSolver variant that replaces the ``evaluate_hand`` depth-cutoff
-    heuristic with ``HeartsNet``'s value head.
-
-    At each depth-limit leaf the network predicts the agent's expected future
-    point contribution given the current hand (partial observation: only the
-    current-hand slice [160:212] of the 5088-dim OpenSpiel vector is populated;
-    trick-history and other slices are zeroed).  The network was pre-trained
-    with trick-history dropout (p=0.3), so it is robust to this sparse input.
-
-    A per-game dict cache keyed by the agent's hand bitmask avoids redundant
-    forward passes when the same hand state appears in multiple minimax paths.
-    """
-
-    def __init__(self, max_depth, net: HeartsNet):
-        super().__init__(max_depth=max_depth)
-        self.net = net
-        self._value_cache: dict = {}
-
-    def _estimate_score(self, play, agent_id: int) -> float:
-        pts = float(play.points.get(agent_id, 0))
-        hand = play.hands[agent_id]
-        if not hand:
-            return pts
-
-        key = play.hand_masks[agent_id]
-        if key in self._value_cache:
-            return pts + self._value_cache[key]
-
-        features = np.zeros(OBS_DIM, dtype=np.float32)
-        for card in hand:
-            features[OBS_CURRENT_HAND[0] + card] = 1.0
-
-        future_pts = self.net.predict_value(features)
-        self._value_cache[key] = future_pts
-        return pts + future_pts
+# The NN value-head WorldSolver lives in hearts_ai.dmcts_alphazero_bridge so
+# the backend can reuse it without importing this script.  Alias it locally
+# so existing references in this file keep working unchanged.
+NNWorldSolver = NNValueWorldSolver
 
 
 # ---------------------------------------------------------------------------
@@ -384,16 +340,8 @@ class DMCTSSimulator:
     # ------------------------------------------------------------------
 
     def _nn_action(self, ts, legal: list, player_id: int = 0) -> int:
-        """
-        Use ``HeartsNet`` policy head to choose among *legal* actions.
-        Called for passing-phase decisions when a checkpoint is loaded.
-        """
-        obs = np.asarray(ts.observations["info_state"][player_id], dtype=np.float32)
-        legal_mask = np.zeros(52, dtype=bool)
-        for c in legal:
-            legal_mask[c] = True
-        probs, _ = self.net.predict(obs, legal_mask=legal_mask)
-        return max(legal, key=lambda c: probs[c])
+        """Pick a legal action via the ``HeartsNet`` policy head (delegates to bridge)."""
+        return nn_pass_action(self.net, ts, legal, player_id)
 
     # ------------------------------------------------------------------
     # Single game
@@ -409,11 +357,13 @@ class DMCTSSimulator:
         )
 
         # Replace the depth-cutoff heuristic with the NN value head when a
-        # checkpoint is loaded.  Reset the inference cache for each new game
-        # so stale entries from previous games don't carry over.
+        # checkpoint is loaded.  The inference cache is intentionally NOT reset
+        # between games: the NN is deterministic in eval mode (same hand bitmask
+        # → same features → same output), so cached values never go stale.
+        # Persisting the cache across games means games 2+ benefit from the
+        # warm-up that game 1 paid for.
         if self.nn_solver is not None:
             agent.dmcts.solver = self.nn_solver
-            self.nn_solver._value_cache = {}
 
         ts = env.reset()
         agent.reset(initial_hand=None)
@@ -634,6 +584,22 @@ class DMCTSSimulator:
                 print(
                     f"\n  Progress: avg score (last {len(recent)}): {avg:.1f}  |"
                     f"  cumulative%: {cumulative_pct:.1f}%"
+                )
+            else:
+                # Always print a compact status line so silent games don't look frozen.
+                scores_so_far = [r["agent_score"] for r in self.game_results]
+                window = scores_so_far[-min(10, len(scores_so_far)):]
+                avg10 = float(np.mean(window))
+                cache_sz = len(self.nn_solver._value_cache) if self.nn_solver is not None else 0
+                cache_info = f"  nn_cache={cache_sz:,}" if self.nn_solver is not None else ""
+                ms_per_move = (
+                    self.total_agent_time / max(self.total_agent_moves, 1) * 1000
+                )
+                print(
+                    f"  [{i+1:4d}/{num_games}] score={result['agent_score']:2d}"
+                    f"  avg10={avg10:.1f}  cum%={self._cumulative_pct():.1f}%"
+                    f"  {ms_per_move:.0f}ms/move{cache_info}",
+                    flush=True,
                 )
 
         print(f"\nSimulation complete: {len(self.game_results)} games")
