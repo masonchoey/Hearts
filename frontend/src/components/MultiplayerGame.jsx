@@ -30,6 +30,7 @@ export default function MultiplayerGame({ room, onLeave }) {
     connectedSeats,
     error: wsError,
     playCard: wsPlayCard,
+    passCards: wsPassCards,
   } = useMultiplayerGame(room.room_id, token)
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -48,13 +49,22 @@ export default function MultiplayerGame({ room, onLeave }) {
     if (!gameState || mySeat === null) return
 
     // Rotate so mySeat appears at rotated index 0 (bottom / "human" slot)
+    const rotatedHandCounts = rotateArray(
+      [0, 1, 2, 3].map(seat => gameState.hand_counts?.[seat] ?? 0),
+      mySeat,
+    )
     const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => ({
       ...p,
       id: i,
       is_ai: false,
+      // Backend only sends full hand for the viewer; use hand_counts for card backs
+      hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
     }))
 
     const rotatedCurrentPlayer = ((gameState.current_player ?? 0) - mySeat + 4) % 4
+    const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(
+      s => (s - mySeat + 4) % 4,
+    )
 
     useGameStore.setState({
       gameId: `mp_${room.room_id}`,
@@ -62,6 +72,8 @@ export default function MultiplayerGame({ room, onLeave }) {
         ...gameState,
         players: rotatedPlayers,
         current_player: rotatedCurrentPlayer,
+        passes_submitted: rotatedPassesSubmitted,
+        my_pass_submitted: gameState.my_pass_submitted ?? false,
       },
       isLoading: false,
       error: null,
@@ -80,13 +92,33 @@ export default function MultiplayerGame({ room, onLeave }) {
         wsPlayCard(card)
         return null
       },
-      // Override passCards: send one card at a time via WebSocket
+      // Queue full 3-card pass — backend applies when OpenSpiel reaches this seat
       passCards: async (_rotatedPlayerId, cards) => {
-        for (const card of cards) {
-          wsPlayCard(card)
-          // Small delay so backend can process each card sequentially
-          await new Promise(r => setTimeout(r, 80))
-        }
+        const store = useGameStore.getState()
+        const currentGameState = store.gameState
+        if (!currentGameState) return
+
+        // Optimistic: remove cards from hand immediately
+        const updatedPlayers = currentGameState.players.map(player => {
+          if (player.id !== 0) return player
+          return {
+            ...player,
+            hand: player.hand.filter(
+              c => c && !cards.some(p => p.suit === c.suit && p.rank === c.rank),
+            ),
+          }
+        })
+
+        useGameStore.setState({
+          gameState: {
+            ...currentGameState,
+            players: updatedPlayers,
+            my_pass_submitted: true,
+          },
+          selectedCards: [],
+        })
+
+        wsPassCards(cards)
       },
     })
 
@@ -98,7 +130,7 @@ export default function MultiplayerGame({ room, onLeave }) {
         gameState: null,
       })
     }
-  }, [wsPlayCard])
+  }, [wsPlayCard, wsPassCards])
 
   // ── Connection status banner ──────────────────────────────────────────────
   const statusLabel = {
@@ -198,10 +230,10 @@ export default function MultiplayerGame({ room, onLeave }) {
           <p className="mp-room-code">Room code: <strong>{room.invite_code}</strong></p>
         </div>
       ) : (
-        <>
+        <div className="mp-game-area">
           <GameBoard />
           <Controls onShowScoreboard={() => setShowScoreboard(true)} />
-        </>
+        </div>
       )}
 
       {showScoreboard && <Scoreboard onClose={() => setShowScoreboard(false)} />}

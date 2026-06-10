@@ -108,6 +108,14 @@ export function useMultiplayerGame(roomId, token) {
     wsRef.current.send(JSON.stringify({ type: 'play_card', card }))
   }, [])
 
+  const passCards = useCallback((cards) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      setError('Not connected')
+      return
+    }
+    wsRef.current.send(JSON.stringify({ type: 'pass_cards', cards }))
+  }, [])
+
   const ping = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'ping' }))
@@ -122,6 +130,7 @@ export function useMultiplayerGame(roomId, token) {
     players,
     connectedSeats,
     playCard,
+    passCards,
     ping,
   }
 }

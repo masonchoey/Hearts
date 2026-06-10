@@ -242,6 +242,17 @@ async def _start_game(room: MultiplayerRoom, db: AsyncSession):
         })
 
 
+async def _broadcast_game_state(room_id: str, game, move_sequence: Optional[list] = None):
+    """Send personalised game state to every connected seat."""
+    moves = move_sequence or []
+    for target_seat in range(4):
+        state = game.build_state_with_move(target_seat, moves)
+        await ws_manager.send_to_seat(room_id, target_seat, {
+            "type": "game_state",
+            "state": state,
+        })
+
+
 # ── WebSocket endpoint ───────────────────────────────────────────────────────
 
 @router.websocket("/ws/{room_id}")
@@ -254,6 +265,7 @@ async def websocket_endpoint(
     WebSocket for real-time multiplayer game.
     Auth: pass ?token=<jwt> as a query param.
     Messages in:  { type: "play_card", card: { suit, rank } }
+                  { type: "pass_cards", cards: [{ suit, rank }, ...] }  (exactly 3)
     Messages out: { type: "game_state", state: {...} }
                   { type: "error", message: "..." }
                   { type: "player_joined", ... }
@@ -324,19 +336,32 @@ async def websocket_endpoint(
                 try:
                     card_data = msg.get("card", {})
                     card = Card(suit=card_data["suit"], rank=card_data["rank"])
-                    move = [seat, card.dict()]
                     game.apply_move(seat, card)
+                    moves = [(seat, card)] + game.process_pending_passes()
+                    move_sequence = [[s, c.dict()] for s, c in moves]
                 except (ValueError, KeyError) as e:
                     await ws_manager.send_to_seat(room_id, seat, {"type": "error", "message": str(e)})
                     continue
 
-                # Broadcast updated game state to each player (personalised hand)
-                for target_seat in range(4):
-                    state = game.build_state_with_move(target_seat, [move])
-                    await ws_manager.send_to_seat(room_id, target_seat, {
-                        "type": "game_state",
-                        "state": state,
-                    })
+                await _broadcast_game_state(room_id, game, move_sequence)
+
+            elif msg_type == "pass_cards":
+                game = multiplayer_manager.get_game(room_id)
+                if game is None:
+                    await ws_manager.send_to_seat(room_id, seat, {"type": "error", "message": "Game not started"})
+                    continue
+
+                try:
+                    cards_data = msg.get("cards", [])
+                    cards = [Card(suit=c["suit"], rank=c["rank"]) for c in cards_data]
+                    game.queue_pass(seat, cards)
+                    moves = game.process_pending_passes()
+                    move_sequence = [[s, c.dict()] for s, c in moves]
+                except (ValueError, KeyError) as e:
+                    await ws_manager.send_to_seat(room_id, seat, {"type": "error", "message": str(e)})
+                    continue
+
+                await _broadcast_game_state(room_id, game, move_sequence)
 
             elif msg_type == "ping":
                 await ws_manager.send_to_seat(room_id, seat, {"type": "pong"})

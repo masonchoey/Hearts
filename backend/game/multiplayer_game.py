@@ -27,6 +27,10 @@ class MultiplayerGameInstance:
         self.user_to_seat: Dict[str, int] = {v: k for k, v in seat_to_user.items()}
         self.game = HeartsGame()
         self.game.reset()
+        # Queued pass selections — seat → ordered list of 3 cards waiting to be applied
+        self._pending_passes: Dict[int, List[Card]] = {}
+        # Seats that have committed their 3-card pass (independent of OpenSpiel turn order)
+        self._passes_submitted: set[int] = set()
 
     # ------------------------------------------------------------------
     # State helpers
@@ -56,6 +60,44 @@ class MultiplayerGameInstance:
             raise ValueError(f"Card {card} is not a legal move for seat {seat}")
         action = self.game.card_to_action(card)
         self.game.apply_action(action)
+
+    def queue_pass(self, seat: int, cards: List[Card]) -> None:
+        """Queue a 3-card pass for a seat. Applied when OpenSpiel reaches that seat's turn."""
+        if not self.is_passing_phase():
+            raise ValueError("Not in passing phase")
+        if seat in self._passes_submitted:
+            raise ValueError("You have already submitted your pass")
+        if len(cards) != 3:
+            raise ValueError("Must pass exactly 3 cards")
+
+        hand = self.game.get_player_hand(seat)
+        hand_set = {(c.suit, c.rank) for c in hand}
+        card_keys = [(c.suit, c.rank) for c in cards]
+        if len(set(card_keys)) != 3:
+            raise ValueError("Pass cards must be distinct")
+        for key in card_keys:
+            if key not in hand_set:
+                raise ValueError(f"Card {key} is not in your hand")
+
+        self._pending_passes[seat] = list(cards)
+        self._passes_submitted.add(seat)
+
+    def process_pending_passes(self) -> List[Tuple[int, Card]]:
+        """Apply queued pass cards in OpenSpiel turn order until no more can be applied."""
+        moves: List[Tuple[int, Card]] = []
+        for _ in range(12):  # safety cap — at most 12 single-card pass steps per round
+            if not self.is_passing_phase():
+                break
+            seat = self.current_player()
+            queue = self._pending_passes.get(seat)
+            if not queue:
+                break
+            card = queue.pop(0)
+            if not queue:
+                del self._pending_passes[seat]
+            self.apply_move(seat, card)
+            moves.append((seat, card))
+        return moves
 
     # ------------------------------------------------------------------
     # State serialisation
@@ -112,6 +154,8 @@ class MultiplayerGameInstance:
             "tricks_played": 0,
             "scores": self._compute_scores(),
             "winner": self._compute_winner(),
+            "passes_submitted": sorted(self._passes_submitted),
+            "my_pass_submitted": viewer_seat in self._passes_submitted,
         }
 
     def build_state_with_move(self, viewer_seat: int, move_sequence: list) -> dict:
