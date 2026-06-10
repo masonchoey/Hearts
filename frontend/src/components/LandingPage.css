@@ -1,0 +1,276 @@
+.landing-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f4c3a 0%, #1a5c47 100%);
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.landing-card {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  padding: 3rem 2.5rem;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  color: white;
+}
+
+.landing-logo {
+  font-size: 4rem;
+  line-height: 1;
+  color: #e74c3c;
+  text-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+  margin-bottom: 0.5rem;
+}
+
+.landing-title {
+  font-size: 2.8rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.5px;
+}
+
+.landing-subtitle {
+  font-size: 1rem;
+  opacity: 0.7;
+  margin: 0 0 2rem;
+}
+
+.landing-loading {
+  opacity: 0.6;
+  font-size: 1rem;
+}
+
+/* ── Auth section ─────────────────────────────────────────────────────── */
+.landing-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.landing-play-guest {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.landing-play-guest h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.landing-play-guest p {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.landing-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.85rem;
+}
+
+.landing-divider::before,
+.landing-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.landing-google-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.landing-error {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ── Signed-in section ───────────────────────────────────────────────── */
+.landing-signed-in {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.landing-user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.landing-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.landing-user-name {
+  margin: 0 0 0.15rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.landing-btn-link {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.landing-btn-link:hover {
+  color: white;
+}
+
+/* ── Mode cards ──────────────────────────────────────────────────────── */
+.landing-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.landing-mode-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.5rem 1rem;
+  cursor: pointer;
+  color: white;
+  text-align: center;
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.landing-mode-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.landing-mode-card--multi:hover {
+  border-color: rgba(100, 180, 255, 0.5);
+  background: rgba(100, 180, 255, 0.08);
+}
+
+.mode-icon {
+  font-size: 2rem;
+}
+
+.landing-mode-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.landing-mode-card p {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.65;
+  line-height: 1.4;
+}
+
+/* ── Shared button ────────────────────────────────────────────────────── */
+.landing-btn {
+  padding: 0.75rem 2rem;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.25s ease;
+}
+
+.landing-btn-primary {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+}
+
+.landing-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
+}
+
+/* ── Neon Auth email/password form ───────────────────────────────────────── */
+.landing-neon-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.landing-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.landing-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.landing-input:focus {
+  border-color: rgba(100, 180, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.landing-neon-google {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.landing-neon-google:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.landing-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .landing-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-card {
+    padding: 2rem 1.25rem;
+  }
+}

@@ -15,7 +15,8 @@ const GameBoard = () => {
   const { gameId, gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow, animatedTrick, hasAnimatedInitialTrick, passingAnimations } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
   const isAnimatingRef = useRef(false);
-  
+  const gameBoardRef = useRef(null);
+
   // Refs for player positions
   const playerRefs = {
     bottom: useRef(null),
@@ -128,8 +129,6 @@ const GameBoard = () => {
     }
   };
 
-  const gameBoardRef = useRef(null);
-  
   return (
     <div className="game-board" ref={gameBoardRef}>
       {/* Pass Direction Widget */}

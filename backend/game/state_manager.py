@@ -18,7 +18,7 @@ class GameStateManager:
     Manages game sessions using HeartsGymWrapper for automatic AI control
     """
     
-    def __init__(self, eager_load: bool = True):
+    def __init__(self, eager_load: bool = False):
         """
         Initialize GameStateManager with Gymnasium environment
         

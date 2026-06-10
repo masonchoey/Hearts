@@ -1,0 +1,235 @@
+.mp-game-root {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f4c3a 0%, #1a5c47 100%);
+}
+
+/* Top bar */
+.mp-topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 44px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.mp-leave-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-leave-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.mp-room-info {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+}
+
+.mp-room-info strong {
+  color: white;
+  letter-spacing: 0.05em;
+}
+
+.mp-status-banner {
+  margin-left: auto;
+  background: rgba(255, 165, 0, 0.15);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  color: orange;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+/* Waiting overlay */
+.mp-waiting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  gap: 1rem;
+}
+
+.mp-waiting p {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 1rem;
+}
+
+.mp-waiting-count {
+  font-size: 0.9rem !important;
+  opacity: 0.6 !important;
+}
+
+.mp-connection-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  width: min(360px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mp-connection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mp-connection-item--connected {
+  border-color: rgba(46, 204, 113, 0.35);
+}
+
+.mp-connection-item--waiting {
+  border-color: rgba(255, 255, 255, 0.06);
+  opacity: 0.85;
+}
+
+.mp-connection-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mp-connection-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mp-connection-avatar-fallback {
+  font-size: 1rem;
+}
+
+.mp-connection-name {
+  flex: 1;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.mp-connection-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mp-connection-item--connected .mp-connection-status {
+  color: #2ecc71;
+}
+
+.mp-connection-item--waiting .mp-connection-status {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mp-start-btn {
+  margin-top: 0.5rem;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mp-start-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6);
+}
+
+.mp-start-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mp-waiting-host {
+  margin-top: 0.5rem !important;
+  font-style: italic;
+  opacity: 0.55 !important;
+}
+
+.mp-start-hint {
+  font-size: 0.82rem !important;
+  opacity: 0.45 !important;
+  margin: 0 !important;
+}
+
+.mp-start-error {
+  color: #e74c3c !important;
+  font-size: 0.88rem !important;
+  opacity: 1 !important;
+  margin: 0 !important;
+}
+
+.mp-room-code {
+  font-size: 0.9rem !important;
+  opacity: 0.5 !important;
+}
+
+.mp-room-code strong {
+  font-size: 1.2rem;
+  letter-spacing: 0.15rem;
+  opacity: 1;
+}
+
+/* Error toast */
+.mp-error-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(231, 76, 60, 0.9);
+  color: white;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+  border-radius: 30px;
+  z-index: 999;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Spinner (also used in MultiplayerLobby but scoped to local) */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  animation: mp-spin 0.85s linear infinite;
+}
+
+@keyframes mp-spin {
+  to { transform: rotate(360deg); }
+}
