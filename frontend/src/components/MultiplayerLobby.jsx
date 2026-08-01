@@ -7,9 +7,9 @@ import './MultiplayerLobby.css'
 
 const SEATS = ['South (You)', 'West', 'North', 'East']
 
-export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: initialInviteCode }) {
+export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: initialInviteCode, roomId: initialRoomId }) {
   const { user, token } = useAuth()
-  const [view, setView] = useState(initialInviteCode ? 'joining' : 'menu') // menu | create | join | waiting | joining
+  const [view, setView] = useState(initialRoomId || initialInviteCode ? 'joining' : 'menu') // menu | create | join | waiting | joining
   const [room, setRoom] = useState(null)
   const [inviteInput, setInviteInput] = useState(initialInviteCode || '')
   const [friends, setFriends] = useState([])
@@ -31,9 +31,30 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
     listFriends(token).then(setFriends).catch(() => {})
   }, [token])
 
+  // Direct room link (?room=ID): load the existing room and go straight to the
+  // waiting screen — no join attempt, so it works for the host and joiners alike.
+  useEffect(() => {
+    if (!initialRoomId || !token) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await getRoom(token, initialRoomId)
+        if (cancelled) return
+        setRoom(r)
+        if (r.players.length === 4) startGame(r)
+        else setView('waiting')
+      } catch (e) {
+        if (cancelled) return
+        setError('Could not load room — it may have ended.')
+        setView('menu')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [initialRoomId, token])
+
   // Auto-join if an invite code was passed in (e.g. from URL)
   useEffect(() => {
-    if (initialInviteCode) handleJoin(initialInviteCode)
+    if (initialInviteCode && !initialRoomId) handleJoin(initialInviteCode)
   }, [])
 
   const startGame = (roomData) => {

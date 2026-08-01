@@ -26,6 +26,14 @@ function getInviteCodeFromUrl() {
   return params.get('invite')?.toUpperCase() || null
 }
 
+// ── Detect a direct room link (?room=ROOM_ID) ──────────────────────────────
+// Used to drop straight into an existing room (host or joiner) without a join
+// attempt — e.g. the dev auto-join launcher opens ?dev=alice&room=<id>.
+function getRoomIdFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('room') || null
+}
+
 // ── Inner app (has access to Auth context) ──────────────────────────────────
 function AppInner() {
   const { user } = useAuth()
@@ -34,17 +42,19 @@ function AppInner() {
   const [view, setView] = useState(VIEW.LANDING)
   const [activeRoom, setActiveRoom] = useState(null)
 
-  // If URL contains an invite code, jump straight into the multiplayer lobby
+  // If URL contains an invite code or a direct room link, jump straight into
+  // the multiplayer lobby once the user is signed in.
   const inviteCode = getInviteCodeFromUrl()
+  const roomId = getRoomIdFromUrl()
   useEffect(() => {
-    if (inviteCode) {
+    if (inviteCode || roomId) {
       if (user) {
         setView(VIEW.MP_LOBBY)
       }
-      // If not logged in, the user will see the landing page with sign-in first;
-      // after login the invite code is still in the URL.
+      // If not logged in, the user sees the landing page with sign-in first;
+      // after login the invite code / room id is still in the URL.
     }
-  }, [user, inviteCode])
+  }, [user, inviteCode, roomId])
 
   const handlePlayAI = async () => {
     setView(VIEW.AI_GAME)
@@ -115,6 +125,7 @@ function AppInner() {
     return (
       <MultiplayerLobby
         inviteCode={inviteCode}
+        roomId={roomId}
         onGameStart={handleGameStart}
         onBack={() => setView(VIEW.LANDING)}
       />

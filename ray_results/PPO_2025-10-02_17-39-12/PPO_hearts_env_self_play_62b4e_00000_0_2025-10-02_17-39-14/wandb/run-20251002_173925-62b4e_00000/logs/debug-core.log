@@ -1,9 +1,0 @@
-{"time":"2025-10-02T17:39:12.260099-07:00","level":"INFO","msg":"main: starting server","port-filename":"/var/folders/49/vs1qwww90mn90rbr43d21bfw0000gn/T/tmpj2amed_m/port-52473.txt","pid":52473,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false,"enable-dcgm-profiling":false}
-{"time":"2025-10-02T17:39:12.261508-07:00","level":"INFO","msg":"server: will exit if parent process dies","ppid":52473}
-{"time":"2025-10-02T17:39:12.261623-07:00","level":"INFO","msg":"server: accepting connections","addr":{"Name":"/var/folders/49/vs1qwww90mn90rbr43d21bfw0000gn/T/wandb-52473-52479-4152290478/socket","Net":"unix"}}
-{"time":"2025-10-02T17:39:12.398381-07:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"1"}
-{"time":"2025-10-02T17:39:12.433795-07:00","level":"INFO","msg":"handleInformInit: received","streamId":"z18iuh5f","id":"1"}
-{"time":"2025-10-02T17:39:12.621814-07:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"z18iuh5f","id":"1"}
-{"time":"2025-10-02T17:39:25.468469-07:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"2"}
-{"time":"2025-10-02T17:39:25.493818-07:00","level":"INFO","msg":"handleInformInit: received","streamId":"62b4e_00000","id":"2"}
-{"time":"2025-10-02T17:39:25.57258-07:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"62b4e_00000","id":"2"}

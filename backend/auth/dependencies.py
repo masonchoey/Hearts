@@ -13,6 +13,7 @@ from sqlalchemy import select
 from ..db.database import get_db
 from ..db.models import User
 from .neon_auth import verify_neon_auth_token, NeonAuthError, is_configured as neon_auth_configured
+from .dev_auth import dev_auth_enabled, parse_dev_token
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -52,8 +53,15 @@ async def upsert_neon_user(db: AsyncSession, claims: dict) -> User:
 
 
 async def resolve_user_from_token(token: str, db: AsyncSession) -> User | None:
-    """Resolve a Neon Auth bearer token to a User."""
-    if not token or not neon_auth_configured():
+    """Resolve a bearer token to a User (dev token or Neon Auth JWT)."""
+    if not token:
+        return None
+    # Dev bypass: accept "dev:<name>" tokens when DEV_AUTH is enabled.
+    if dev_auth_enabled():
+        claims = parse_dev_token(token)
+        if claims is not None:
+            return await upsert_neon_user(db, claims)
+    if not neon_auth_configured():
         return None
     try:
         claims = verify_neon_auth_token(token)
@@ -68,7 +76,7 @@ async def get_current_user(
 ) -> User:
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    if not neon_auth_configured():
+    if not neon_auth_configured() and not dev_auth_enabled():
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Neon Auth is not configured")
 
     user = await resolve_user_from_token(credentials.credentials, db)
