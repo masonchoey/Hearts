@@ -20,7 +20,7 @@ class Card(BaseModel):
 
 class Player(BaseModel):
     """Represents a player in the game"""
-    id: int = Field(..., ge=0, le=3)
+    id: int = Field(..., ge=0, le=4)  # up to 5 seats (0-4) for custom multiplayer
     name: str
     hand: list[Card] = []
     score: int = 0
@@ -54,13 +54,13 @@ class GameState(BaseModel):
 
 class PlayMoveRequest(BaseModel):
     """Request to play a card"""
-    player_id: int = Field(..., ge=0, le=3)
+    player_id: int = Field(..., ge=0, le=4)
     card: Card
 
 
 class PassCardsRequest(BaseModel):
     """Request to pass multiple cards during passing phase"""
-    player_id: int = Field(..., ge=0, le=3)
+    player_id: int = Field(..., ge=0, le=4)
     cards: list[Card] = Field(..., min_items=3, max_items=3)
 
 

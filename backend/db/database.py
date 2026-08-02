@@ -89,6 +89,31 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
+
+
+# Columns added after a table's initial creation. ``create_all`` never ALTERs an
+# existing table, so we add them by hand (idempotent, works on SQLite + Postgres).
+_COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
+    "multiplayer_rooms": {
+        "player_count": "INTEGER NOT NULL DEFAULT 4",
+        "rules_config": "VARCHAR",
+    },
+}
+
+
+def _add_missing_columns(sync_conn) -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    existing_tables = set(inspector.get_table_names())
+    for table, columns in _COLUMN_MIGRATIONS.items():
+        if table not in existing_tables:
+            continue  # create_all just made it with all columns present
+        present = {col["name"] for col in inspector.get_columns(table)}
+        for name, ddl in columns.items():
+            if name not in present:
+                sync_conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {name} {ddl}'))
 
 
 async def get_db():

@@ -60,6 +60,9 @@ class MultiplayerRoom(Base):
     host_id = Column(String, ForeignKey("users.id"), nullable=False)
     # status: "waiting", "playing", "finished"
     status = Column(String, default="waiting", nullable=False)
+    # Custom game config: number of seats (3/4/5) and JSON-encoded scoring rules.
+    player_count = Column(Integer, default=4, nullable=False)
+    rules_config = Column(String, nullable=True)  # JSON: {"jd_bonus": bool, "ten_club_doubler": bool}
     created_at = Column(DateTime, default=datetime.utcnow)
 
     players = relationship("RoomPlayer", back_populates="room", order_by="RoomPlayer.seat")

@@ -9,6 +9,7 @@ import TableCenter from './TableCenter';
 import Card from './Card';
 import PassDirectionWidget from './PassDirectionWidget';
 import PassingAnimation from './PassingAnimation';
+import { slotForIndex, orientationForSlot } from './seatLayout';
 import './GameBoard.css';
 
 const GameBoard = () => {
@@ -17,12 +18,14 @@ const GameBoard = () => {
   const isAnimatingRef = useRef(false);
   const gameBoardRef = useRef(null);
 
-  // Refs for player positions
+  // Refs for player positions (one per possible table slot)
   const playerRefs = {
     bottom: useRef(null),
     top: useRef(null),
     left: useRef(null),
-    right: useRef(null)
+    right: useRef(null),
+    'top-left': useRef(null),
+    'top-right': useRef(null),
   };
 
   // Animate initial cards when board first mounts
@@ -99,10 +102,14 @@ const GameBoard = () => {
   }
 
   const players = gameState.players || [];
+  const playerCount = gameState.player_count || players.length || 4;
   const humanPlayer = players[0];
-  const topPlayer = players[2];
-  const leftPlayer = players[1];
-  const rightPlayer = players[3];
+  // Opponents are rotated indices 1..N-1, each placed in a table slot.
+  const opponents = players.slice(1).map((player, i) => {
+    const rotatedIndex = i + 1;
+    const slot = slotForIndex(playerCount, rotatedIndex);
+    return { player, slot, orientation: orientationForSlot(slot) };
+  });
 
   // Helper function to render AI hands
   const renderAIHand = (player, orientation = 'horizontal') => {
@@ -186,32 +193,20 @@ const GameBoard = () => {
         </div>
       )}
 
-      {/* Top Player (AI) */}
-      <div className="player-area player-top" ref={playerRefs.top}>
-        <div className="player-info">
-          <span className="player-name">{topPlayer?.name}</span>
-          <span className="player-score">Score: {topPlayer?.score || 0}</span>
+      {/* Opponent players, placed around the table by seat slot */}
+      {opponents.map(({ player, slot, orientation }) => (
+        <div
+          key={player?.id ?? slot}
+          className={`player-area player-${slot}`}
+          ref={playerRefs[slot]}
+        >
+          <div className="player-info">
+            <span className="player-name">{player?.name}</span>
+            <span className="player-score">Score: {player?.score || 0}</span>
+          </div>
+          {renderAIHand(player, orientation)}
         </div>
-        {renderAIHand(topPlayer, 'horizontal')}
-      </div>
-
-      {/* Left Player (AI) */}
-      <div className="player-area player-left" ref={playerRefs.left}>
-        <div className="player-info">
-          <span className="player-name">{leftPlayer?.name}</span>
-          <span className="player-score">Score: {leftPlayer?.score || 0}</span>
-        </div>
-        {renderAIHand(leftPlayer, 'vertical')}
-      </div>
-
-      {/* Right Player (AI) */}
-      <div className="player-area player-right" ref={playerRefs.right}>
-        <div className="player-info">
-          <span className="player-name">{rightPlayer?.name}</span>
-          <span className="player-score">Score: {rightPlayer?.score || 0}</span>
-        </div>
-        {renderAIHand(rightPlayer, 'vertical')}
-      </div>
+      ))}
 
       {/* Center Table */}
       <TableCenter/>

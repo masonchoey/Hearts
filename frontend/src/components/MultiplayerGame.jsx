@@ -49,8 +49,11 @@ export default function MultiplayerGame({ room, onLeave }) {
     if (!gameState || mySeat === null) return
 
     // Rotate so mySeat appears at rotated index 0 (bottom / "human" slot)
+    const n = gameState.player_count || gameState.players?.length || 4
+    const rot = (seat) => (((seat - mySeat) % n) + n) % n
+
     const rotatedHandCounts = rotateArray(
-      [0, 1, 2, 3].map(seat => gameState.hand_counts?.[seat] ?? 0),
+      Array.from({ length: n }, (_, seat) => gameState.hand_counts?.[seat] ?? 0),
       mySeat,
     )
     const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => ({
@@ -61,10 +64,18 @@ export default function MultiplayerGame({ room, onLeave }) {
       hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
     }))
 
-    const rotatedCurrentPlayer = ((gameState.current_player ?? 0) - mySeat + 4) % 4
-    const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(
-      s => (s - mySeat + 4) % 4,
-    )
+    const cp = gameState.current_player
+    const rotatedCurrentPlayer = cp >= 0 ? rot(cp) : cp
+    const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(rot)
+    // Trick seat ids must be rotated too so the table positions cards correctly.
+    const rotatedTrick = (gameState.current_trick ?? []).map(([seat, card]) => [rot(seat), card])
+    const rotatedLastTrick = gameState.last_trick
+      ? {
+          ...gameState.last_trick,
+          winner: rot(gameState.last_trick.winner),
+          cards: (gameState.last_trick.cards ?? []).map(([seat, card]) => [rot(seat), card]),
+        }
+      : null
 
     useGameStore.setState({
       gameId: `mp_${room.room_id}`,
@@ -73,6 +84,8 @@ export default function MultiplayerGame({ room, onLeave }) {
         players: rotatedPlayers,
         current_player: rotatedCurrentPlayer,
         passes_submitted: rotatedPassesSubmitted,
+        current_trick: rotatedTrick,
+        last_trick: rotatedLastTrick,
         my_pass_submitted: gameState.my_pass_submitted ?? false,
       },
       isLoading: false,
@@ -146,10 +159,11 @@ export default function MultiplayerGame({ room, onLeave }) {
   if (connectionStatus === 'open' && myRoomSeat !== undefined) {
     connectedSet.add(myRoomSeat)
   }
+  const requiredPlayers = room.player_count || 4
   const sortedPlayers = [...room.players].sort((a, b) => a.seat - b.seat)
   const connectedCount = sortedPlayers.filter(p => connectedSet.has(p.seat)).length
   const isHost = room.host_id === myUserId
-  const allConnected = sortedPlayers.length === 4 && connectedCount === 4
+  const allConnected = sortedPlayers.length === requiredPlayers && connectedCount === requiredPlayers
   const canStart = isHost && allConnected && !starting
 
   const handleStartGame = async () => {
@@ -222,7 +236,7 @@ export default function MultiplayerGame({ room, onLeave }) {
           )}
 
           {isHost && !allConnected && (
-            <p className="mp-start-hint">All 4 players must be connected before you can start.</p>
+            <p className="mp-start-hint">All {requiredPlayers} players must be connected before you can start.</p>
           )}
 
           {startError && <p className="mp-start-error">{startError}</p>}

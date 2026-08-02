@@ -1,18 +1,24 @@
 """
 Multiplayer Hearts game manager.
-Wraps HeartsGame for a room with 4 human players — no AI.
+Wraps the native Hearts engine for a room with N human players (no AI).
 Builds per-seat game-state views (each player sees only their own hand).
+
+Supports custom player counts (3/4/5) and host-selectable scoring rules via
+``RuleConfig``. This path is fully independent of OpenSpiel — the single-player
+vs-AI path (``state_manager.py`` / ``hearts_logic.py``) still uses OpenSpiel.
 """
 from typing import Dict, List, Optional, Tuple
-from .hearts_logic import HeartsGame
-from ..schemas.types import Card, Player, GameState
+
+from .native import NativeHeartsGame, RuleConfig
+from ..schemas.types import Card, Player
 
 
 class MultiplayerGameInstance:
     """
     Holds one Hearts game for a room.
-    seat_to_user: maps seat (0-3) → user_id
-    seat_to_name: maps seat (0-3) → display name
+    seat_to_user: maps seat (0..N-1) → user_id
+    seat_to_name: maps seat (0..N-1) → display name
+    rules:        player count + scoring toggles for this game
     """
 
     def __init__(
@@ -20,17 +26,15 @@ class MultiplayerGameInstance:
         room_id: str,
         seat_to_user: Dict[int, str],
         seat_to_name: Dict[int, str],
+        rules: Optional[RuleConfig] = None,
     ):
         self.room_id = room_id
+        self.rules = rules or RuleConfig(player_count=len(seat_to_user))
+        self.n = self.rules.player_count
         self.seat_to_user = seat_to_user  # {0: user_id, ...}
         self.seat_to_name = seat_to_name  # {0: "Alice", ...}
         self.user_to_seat: Dict[str, int] = {v: k for k, v in seat_to_user.items()}
-        self.game = HeartsGame()
-        self.game.reset()
-        # Queued pass selections — seat → ordered list of 3 cards waiting to be applied
-        self._pending_passes: Dict[int, List[Card]] = {}
-        # Seats that have committed their 3-card pass (independent of OpenSpiel turn order)
-        self._passes_submitted: set[int] = set()
+        self.game = NativeHeartsGame(self.rules)
 
     # ------------------------------------------------------------------
     # State helpers
@@ -43,61 +47,35 @@ class MultiplayerGameInstance:
         return self.game.is_terminal()
 
     def is_passing_phase(self) -> bool:
-        return self.game.is_passing_phase(0)
+        return self.game.is_passing_phase()
 
     def pass_direction(self) -> str:
-        return self.game.get_pass_direction(0)
+        return self.game.pass_direction()
 
     # ------------------------------------------------------------------
     # Move processing
     # ------------------------------------------------------------------
 
     def apply_move(self, seat: int, card: Card) -> None:
-        """Apply a card play or pass from the given seat. Raises ValueError on illegal move."""
-        if self.game.current_player() != seat:
-            raise ValueError(f"It is not seat {seat}'s turn")
-        if not self.game.validate_move(seat, card):
-            raise ValueError(f"Card {card} is not a legal move for seat {seat}")
-        action = self.game.card_to_action(card)
-        self.game.apply_action(action)
+        """Apply a card play from the given seat. Raises ValueError on illegal move."""
+        self.game.apply_move(seat, card)
 
     def queue_pass(self, seat: int, cards: List[Card]) -> None:
-        """Queue a 3-card pass for a seat. Applied when OpenSpiel reaches that seat's turn."""
-        if not self.is_passing_phase():
-            raise ValueError("Not in passing phase")
-        if seat in self._passes_submitted:
-            raise ValueError("You have already submitted your pass")
-        if len(cards) != 3:
-            raise ValueError("Must pass exactly 3 cards")
-
-        hand = self.game.get_player_hand(seat)
-        hand_set = {(c.suit, c.rank) for c in hand}
-        card_keys = [(c.suit, c.rank) for c in cards]
-        if len(set(card_keys)) != 3:
-            raise ValueError("Pass cards must be distinct")
-        for key in card_keys:
-            if key not in hand_set:
-                raise ValueError(f"Card {key} is not in your hand")
-
-        self._pending_passes[seat] = list(cards)
-        self._passes_submitted.add(seat)
+        """
+        Submit a seat's 3-card pass. Passing is simultaneous: once every seat has
+        submitted, the native engine applies all passes at once and play begins.
+        """
+        if seat not in range(self.n):
+            raise ValueError(f"Invalid seat {seat}")
+        self.game.submit_pass(seat, cards)
 
     def process_pending_passes(self) -> List[Tuple[int, Card]]:
-        """Apply queued pass cards in OpenSpiel turn order until no more can be applied."""
-        moves: List[Tuple[int, Card]] = []
-        for _ in range(12):  # safety cap — at most 12 single-card pass steps per round
-            if not self.is_passing_phase():
-                break
-            seat = self.current_player()
-            queue = self._pending_passes.get(seat)
-            if not queue:
-                break
-            card = queue.pop(0)
-            if not queue:
-                del self._pending_passes[seat]
-            self.apply_move(seat, card)
-            moves.append((seat, card))
-        return moves
+        """
+        Retained for route compatibility. The native engine applies passes
+        atomically inside ``queue_pass``, so there are no incremental pass moves
+        to return here.
+        """
+        return []
 
     # ------------------------------------------------------------------
     # State serialisation
@@ -105,26 +83,21 @@ class MultiplayerGameInstance:
 
     def _build_player_list(self, viewer_seat: int) -> List[Player]:
         """Build the players list as seen by viewer_seat — only viewer's hand is full."""
+        scores = self._compute_scores()
         players = []
-        for seat in range(4):
+        for seat in range(self.n):
             hand = self.game.get_player_hand(seat) if seat == viewer_seat else []
             players.append(
                 Player(
                     id=seat,
                     name=self.seat_to_name.get(seat, f"Player {seat}"),
                     hand=hand,
-                    score=0,
-                    round_score=0,
+                    score=scores.get(seat, 0),
+                    round_score=scores.get(seat, 0),
                     is_ai=False,
                 )
             )
         return players
-
-    def _current_trick(self) -> List[Tuple[int, Card]]:
-        # OpenSpiel doesn't expose trick cards directly through the RL env,
-        # so we track it via the observation's played-cards section.
-        # For now return empty; it's populated from move_sequence in practice.
-        return []
 
     def build_state_for_seat(self, viewer_seat: int) -> dict:
         """
@@ -132,30 +105,32 @@ class MultiplayerGameInstance:
         Includes full hand for viewer_seat, card counts for others.
         """
         players = self._build_player_list(viewer_seat)
-
-        # Compute hand counts for all players from their observations
-        hand_counts = {}
-        for seat in range(4):
-            hand_counts[seat] = len(self.game.get_player_hand(seat))
-
+        hand_counts = {seat: self.game.hand_count(seat) for seat in range(self.n)}
         is_passing = self.is_passing_phase()
+
+        current_trick = [[s, c.dict()] for (s, c) in self.game.current_trick_cards()]
+        last_trick = self._serialise_last_trick()
+
         return {
             "my_seat": viewer_seat,
+            "player_count": self.n,
+            "rules": self.rules.to_dict(),
             "players": [p.dict() for p in players],
             "hand_counts": hand_counts,
             "current_player": self.current_player(),
-            "current_trick": [],
+            "current_trick": current_trick,
+            "last_trick": last_trick,
             "move_sequence": [],
             "is_passing_phase": is_passing,
             "pass_direction": self.pass_direction() if is_passing else None,
             "game_over": self.is_terminal(),
             "hearts_broken": self.game.hearts_broken,
             "round_number": 1,
-            "tricks_played": 0,
+            "tricks_played": self.game.tricks_played,
             "scores": self._compute_scores(),
             "winner": self._compute_winner(),
-            "passes_submitted": sorted(self._passes_submitted),
-            "my_pass_submitted": viewer_seat in self._passes_submitted,
+            "passes_submitted": self.game.submitted_pass_seats(),
+            "my_pass_submitted": self.game.has_submitted_pass(viewer_seat),
         }
 
     def build_state_with_move(self, viewer_seat: int, move_sequence: list) -> dict:
@@ -164,19 +139,28 @@ class MultiplayerGameInstance:
         state["move_sequence"] = move_sequence
         return state
 
+    def _serialise_last_trick(self) -> Optional[dict]:
+        lt = self.game.last_trick
+        if not lt:
+            return None
+        return {
+            "cards": [[s, c.dict()] for (s, c) in lt["cards"]],
+            "winner": lt["winner"],
+            "points": lt["points"],
+        }
+
     def _compute_scores(self) -> Dict[int, int]:
-        """Return cumulative scores for all seats."""
-        if self.is_terminal():
-            returns = self.game.get_returns()
-            return {i: max(0, 26 - int(r)) for i, r in enumerate(returns)}
-        # Scores mid-game are tracked per-trick; approximate from observations
-        return {i: 0 for i in range(4)}
+        """
+        Final custom scores once the deal is over, otherwise a live running tally
+        of base penalty points (hearts + Q♠) taken so far.
+        """
+        final = self.game.final_scores()
+        if final is not None:
+            return final
+        return self.game.running_points()
 
     def _compute_winner(self) -> Optional[int]:
-        if not self.is_terminal():
-            return None
-        scores = self._compute_scores()
-        return min(scores, key=lambda k: scores[k])
+        return self.game.winner()
 
 
 class MultiplayerGameManager:
@@ -192,8 +176,9 @@ class MultiplayerGameManager:
         room_id: str,
         seat_to_user: Dict[int, str],
         seat_to_name: Dict[int, str],
+        rules: Optional[RuleConfig] = None,
     ) -> MultiplayerGameInstance:
-        instance = MultiplayerGameInstance(room_id, seat_to_user, seat_to_name)
+        instance = MultiplayerGameInstance(room_id, seat_to_user, seat_to_name, rules)
         self._games[room_id] = instance
         return instance
 

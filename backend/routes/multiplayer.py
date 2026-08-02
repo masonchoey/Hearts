@@ -7,7 +7,7 @@ import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -17,9 +17,23 @@ from ..db.models import User, MultiplayerRoom, RoomPlayer
 from ..auth.dependencies import get_current_user, resolve_user_from_token
 from ..realtime.connection_manager import manager as ws_manager
 from ..game.multiplayer_game import multiplayer_manager
+from ..game.native import RuleConfig
 from ..schemas.types import Card
 
 router = APIRouter(prefix="/mp", tags=["multiplayer"])
+
+
+def _room_rules(room: MultiplayerRoom) -> RuleConfig:
+    """Build a RuleConfig from a room's stored player_count + rules_config JSON."""
+    try:
+        cfg = json.loads(room.rules_config) if room.rules_config else {}
+    except (TypeError, ValueError):
+        cfg = {}
+    return RuleConfig(
+        player_count=room.player_count or 4,
+        jd_bonus=bool(cfg.get("jd_bonus", False)),
+        ten_club_doubler=bool(cfg.get("ten_club_doubler", False)),
+    )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -37,22 +51,45 @@ class RoomPlayerOut(BaseModel):
     picture: Optional[str]
 
 
+class RoomRulesOut(BaseModel):
+    jd_bonus: bool = False
+    ten_club_doubler: bool = False
+
+
 class RoomOut(BaseModel):
     room_id: str
     invite_code: str
     host_id: str
     status: str
+    player_count: int = 4
+    rules: RoomRulesOut = RoomRulesOut()
     players: List[RoomPlayerOut]
+
+
+class CreateRoomRequest(BaseModel):
+    player_count: int = Field(4, ge=3, le=5)
+    jd_bonus: bool = False
+    ten_club_doubler: bool = False
+
+
+def _rules_out(room: MultiplayerRoom) -> RoomRulesOut:
+    r = _room_rules(room)
+    return RoomRulesOut(jd_bonus=r.jd_bonus, ten_club_doubler=r.ten_club_doubler)
 
 
 # ── REST endpoints ───────────────────────────────────────────────────────────
 
 @router.post("/rooms", response_model=RoomOut)
 async def create_room(
+    config: CreateRoomRequest = CreateRoomRequest(),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new multiplayer room and join seat 0 as host."""
+    """Create a new multiplayer room and join seat 0 as host.
+
+    The host chooses the player count (3/4/5) and which optional scoring rules
+    are active; these are stored on the room and applied when the game starts.
+    """
     # Generate a unique invite code
     for _ in range(10):
         code = _make_invite_code()
@@ -60,7 +97,17 @@ async def create_room(
         if result.scalar_one_or_none() is None:
             break
 
-    room = MultiplayerRoom(invite_code=code, host_id=current_user.id, status="waiting")
+    rules_json = json.dumps({
+        "jd_bonus": config.jd_bonus,
+        "ten_club_doubler": config.ten_club_doubler,
+    })
+    room = MultiplayerRoom(
+        invite_code=code,
+        host_id=current_user.id,
+        status="waiting",
+        player_count=config.player_count,
+        rules_config=rules_json,
+    )
     db.add(room)
     await db.flush()
 
@@ -74,6 +121,8 @@ async def create_room(
         invite_code=room.invite_code,
         host_id=room.host_id,
         status=room.status,
+        player_count=room.player_count,
+        rules=_rules_out(room),
         players=[RoomPlayerOut(seat=0, user_id=current_user.id, name=current_user.name, picture=current_user.picture)],
     )
 
@@ -95,7 +144,8 @@ async def join_room(
         raise HTTPException(status_code=404, detail="Room not found")
     if room.status != "waiting":
         raise HTTPException(status_code=409, detail="Game already started")
-    if len(room.players) >= 4:
+    capacity = room.player_count or 4
+    if len(room.players) >= capacity:
         raise HTTPException(status_code=409, detail="Room is full")
 
     # Check not already in room
@@ -105,7 +155,7 @@ async def join_room(
 
     # Assign next available seat
     taken_seats = {p.seat for p in room.players}
-    seat_num = next(s for s in range(4) if s not in taken_seats)
+    seat_num = next(s for s in range(capacity) if s not in taken_seats)
 
     new_player = RoomPlayer(room_id=room.id, user_id=current_user.id, seat=seat_num)
     db.add(new_player)
@@ -136,6 +186,8 @@ async def join_room(
         invite_code=room.invite_code,
         host_id=room.host_id,
         status=room.status,
+        player_count=room.player_count,
+        rules=_rules_out(room),
         players=players_out,
     )
 
@@ -164,6 +216,8 @@ async def get_room(
         invite_code=room.invite_code,
         host_id=room.host_id,
         status=room.status,
+        player_count=room.player_count,
+        rules=_rules_out(room),
         players=players_out,
     )
 
@@ -187,8 +241,9 @@ async def start_room(
         raise HTTPException(status_code=403, detail="Only the host can start the game")
     if room.status != "waiting":
         raise HTTPException(status_code=409, detail="Game already started")
-    if len(room.players) != 4:
-        raise HTTPException(status_code=400, detail="Need exactly 4 players to start")
+    required = room.player_count or 4
+    if len(room.players) != required:
+        raise HTTPException(status_code=400, detail=f"Need exactly {required} players to start")
 
     await _start_game(room, db)
 
@@ -207,6 +262,8 @@ async def start_room(
         invite_code=room.invite_code,
         host_id=room.host_id,
         status=room.status,
+        player_count=room.player_count,
+        rules=_rules_out(room),
         players=players_out,
     )
 
@@ -227,14 +284,15 @@ async def _start_game(room: MultiplayerRoom, db: AsyncSession):
     """Initialise the in-memory game and notify all WebSocket clients."""
     seat_to_user = {p.seat: p.user_id for p in room.players}
     seat_to_name = {p.seat: p.user.name for p in room.players}
+    rules = _room_rules(room)
 
-    game = multiplayer_manager.create_game(room.id, seat_to_user, seat_to_name)
+    game = multiplayer_manager.create_game(room.id, seat_to_user, seat_to_name, rules)
 
     room.status = "playing"
     await db.commit()
 
     # Send each player their personalised initial state
-    for seat in range(4):
+    for seat in range(rules.player_count):
         state = game.build_state_for_seat(seat)
         await ws_manager.send_to_seat(room.id, seat, {
             "type": "game_started",
@@ -245,7 +303,7 @@ async def _start_game(room: MultiplayerRoom, db: AsyncSession):
 async def _broadcast_game_state(room_id: str, game, move_sequence: Optional[list] = None):
     """Send personalised game state to every connected seat."""
     moves = move_sequence or []
-    for target_seat in range(4):
+    for target_seat in range(game.n):
         state = game.build_state_with_move(target_seat, moves)
         await ws_manager.send_to_seat(room_id, target_seat, {
             "type": "game_state",

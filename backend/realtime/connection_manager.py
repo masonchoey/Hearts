@@ -9,14 +9,11 @@ from fastapi import WebSocket
 
 
 class RoomConnection:
-    """Holds the 4 WebSocket connections for a single room."""
+    """Holds one WebSocket per seat for a single room (3-5 seats)."""
 
     def __init__(self):
-        # seat (0-3) → WebSocket
+        # seat (0..N-1) → WebSocket
         self.connections: Dict[int, WebSocket] = {}
-
-    def is_full(self) -> bool:
-        return len(self.connections) >= 4
 
     def connected_seats(self) -> list[int]:
         return list(self.connections.keys())
