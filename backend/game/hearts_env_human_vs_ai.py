@@ -17,11 +17,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
-sparse_reward = os.getenv("SPARSE_REWARD")
-print(f"SPARSE_REWARD: {sparse_reward}")
-if sparse_reward is None:
-    raise RuntimeError("SPARSE_REWARD is not set (check .env)")
+sparse_reward = False
 
 class HeartsGymEnvHumanVsAI(gym.Env):
     """A Gymnasium wrapper for Hearts with 1 human player vs 3 AI players.

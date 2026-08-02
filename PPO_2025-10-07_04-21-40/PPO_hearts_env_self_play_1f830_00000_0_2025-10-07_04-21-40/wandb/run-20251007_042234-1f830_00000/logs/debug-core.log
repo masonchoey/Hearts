@@ -1,6 +1,0 @@
-{"time":"2025-10-07T04:22:34.973595163Z","level":"INFO","msg":"main: starting server","port-filename":"/tmp/tmpiyupobh7/port-3132.txt","pid":3132,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false,"enable-dcgm-profiling":false}
-{"time":"2025-10-07T04:22:34.976738308Z","level":"INFO","msg":"server: will exit if parent process dies","ppid":3132}
-{"time":"2025-10-07T04:22:34.976630359Z","level":"INFO","msg":"server: accepting connections","addr":{"Name":"/tmp/wandb-3132-3314-2468663089/socket","Net":"unix"}}
-{"time":"2025-10-07T04:22:35.097467745Z","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"1(@)"}
-{"time":"2025-10-07T04:22:35.129719422Z","level":"INFO","msg":"handleInformInit: received","streamId":"1f830_00000","id":"1(@)"}
-{"time":"2025-10-07T04:22:35.575115526Z","level":"INFO","msg":"handleInformInit: stream started","streamId":"1f830_00000","id":"1(@)"}

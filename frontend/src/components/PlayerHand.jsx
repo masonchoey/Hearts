@@ -8,16 +8,24 @@ import Card from './Card';
 import './PlayerHand.css';
 
 const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
-  const { playCard, selectedCard, selectedCards, selectCard, isLoading, gameState, passCards } = useGameStore();
+  const { gameId, playCard, selectedCard, selectedCards, selectCard, isLoading, gameState, passCards } = useGameStore();
+
+  const isMultiplayer = gameId?.startsWith('mp_');
+  const inPassingPhase = gameState?.is_passing_phase;
+  const myPassSubmitted = gameState?.my_pass_submitted;
+  // Multiplayer passing: all players can queue their pass independently of turn order
+  const canInteract = isMultiplayer && inPassingPhase
+    ? !myPassSubmitted
+    : isCurrentPlayer;
 
   const handleCardClick = (card) => {
-    if (!isCurrentPlayer || isLoading) return;
+    if (!canInteract || isLoading) return;
     selectCard(card);
   };
 
   const handlePlayCard = () => {
-    if (!selectedCard || !isCurrentPlayer || isLoading) {
-      console.warn('Cannot play card:', { selectedCard, isCurrentPlayer, isLoading, currentPlayer: gameState?.current_player });
+    if (!selectedCard || !canInteract || isLoading) {
+      console.warn('Cannot play card:', { selectedCard, canInteract, isLoading, currentPlayer: gameState?.current_player });
       return;
     }
     console.log('Attempting to play card:', { playerId, card: selectedCard, currentPlayer: gameState?.current_player });
@@ -30,8 +38,8 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
   };
 
   const handlePassCards = () => {
-    if (selectedCards.length !== 3 || !isCurrentPlayer || isLoading) {
-      console.warn('Cannot pass cards:', { selectedCards, isCurrentPlayer, isLoading, currentPlayer: gameState?.current_player });
+    if (selectedCards.length !== 3 || !canInteract || isLoading) {
+      console.warn('Cannot pass cards:', { selectedCards, canInteract, isLoading, currentPlayer: gameState?.current_player });
       return;
     }
     console.log('Attempting to pass cards:', { playerId, cards: selectedCards, currentPlayer: gameState?.current_player });
@@ -58,7 +66,7 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
   useEffect(() => {
     const handleKeyPress = (event) => {
       // Only handle spacebar when it's the player's turn and not loading
-      if (event.code === 'Space' && isCurrentPlayer && !isLoading) {
+      if (event.code === 'Space' && canInteract && !isLoading) {
         event.preventDefault(); // Prevent page scroll
         
         // handlePlayCard();
@@ -79,7 +87,7 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
     return () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
-  }, [isCurrentPlayer, isLoading, gameState?.is_passing_phase, selectedCard, selectedCards]);
+  }, [canInteract, isLoading, gameState?.is_passing_phase, selectedCard, selectedCards]);
 
   return (
     <div className="player-hand-container">
@@ -87,7 +95,7 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
         {cards.map((card, index) => (
           <div
             key={`${card.suit}-${card.rank}`}
-            className={`card-wrapper ${isCardSelected(card) ? 'selected' : ''} ${isCardPlayed(card) ? 'played' : ''} ${!isCurrentPlayer ? 'disabled' : ''}`}
+            className={`card-wrapper ${isCardSelected(card) ? 'selected' : ''} ${isCardPlayed(card) ? 'played' : ''} ${!canInteract ? 'disabled' : ''}`}
             onClick={() => handleCardClick(card)}
             style={{ '--card-index': index }}
           >
@@ -96,7 +104,7 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
         ))}
       </div>
       
-      {isCurrentPlayer && gameState?.is_passing_phase && (
+      {canInteract && gameState?.is_passing_phase && (
         <div className="passing-phase-controls">
           <div className="selected-cards-info">
             Selected: {selectedCards.length}/3 cards
@@ -112,13 +120,19 @@ const PlayerHand = ({ cards, playerId, isCurrentPlayer }) => {
       )}
       
       <div className="player-controls">
-        {!isCurrentPlayer && (
+        {isMultiplayer && inPassingPhase && myPassSubmitted && (
+          <div className="waiting-message">
+            Pass submitted — waiting for others ({gameState.passes_submitted?.length ?? 0}/4)
+          </div>
+        )}
+
+        {!canInteract && !(isMultiplayer && inPassingPhase && myPassSubmitted) && (
           <div className="waiting-message">
             Waiting for other players...
           </div>
         )}
         
-        {isCurrentPlayer && !gameState?.is_passing_phase && (
+        {canInteract && !gameState?.is_passing_phase && (
           <button
             className="play-card-button"
             onClick={handlePlayCard}

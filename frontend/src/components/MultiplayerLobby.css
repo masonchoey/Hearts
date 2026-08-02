@@ -1,0 +1,428 @@
+.lobby-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f4c3a 0%, #1a5c47 100%);
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.lobby-card {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  padding: 2.5rem;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  color: white;
+  position: relative;
+}
+
+.lobby-card--wide {
+  max-width: 560px;
+}
+
+.lobby-back {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 1.25rem;
+  display: block;
+  transition: color 0.2s;
+}
+
+.lobby-back:hover {
+  color: white;
+}
+
+.lobby-heading {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0 0 0.3rem;
+}
+
+.lobby-subtext {
+  font-size: 0.9rem;
+  opacity: 0.65;
+  margin: 0 0 1.75rem;
+}
+
+.lobby-error {
+  background: rgba(231, 76, 60, 0.15);
+  border: 1px solid rgba(231, 76, 60, 0.4);
+  color: #ff9a9a;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Menu ─────────────────────────────────────────────────────────────── */
+.lobby-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lobby-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  cursor: pointer;
+  color: white;
+  text-align: left;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.lobby-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateX(4px);
+}
+
+.lobby-mode-btn--secondary {
+  opacity: 0.8;
+}
+
+.lobby-mode-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.lobby-mode-btn strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.lobby-mode-btn p {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.65;
+}
+
+/* ── Action view ─────────────────────────────────────────────────────── */
+.lobby-action {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  text-align: center;
+}
+
+.lobby-action p {
+  margin: 0;
+  opacity: 0.75;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.lobby-label {
+  display: block;
+  text-align: left;
+  width: 100%;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-bottom: -0.5rem;
+}
+
+.lobby-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.25rem;
+  text-align: center;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.lobby-input::placeholder {
+  opacity: 0.4;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 1rem;
+}
+
+.lobby-input:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.lobby-btn {
+  padding: 0.7rem 1.75rem;
+  border-radius: 50px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.lobby-btn-primary {
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+}
+
+.lobby-btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6);
+}
+
+.lobby-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lobby-btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.lobby-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lobby-btn-xs {
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.lobby-btn-xs:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lobby-btn-link {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.lobby-btn-link:hover {
+  color: white;
+}
+
+.lobby-btn-link-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.lobby-btn-link-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Seats grid ──────────────────────────────────────────────────────── */
+.lobby-seats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.lobby-seat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 80px;
+  justify-content: center;
+}
+
+.lobby-seat--filled {
+  background: rgba(255, 255, 255, 0.09);
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.lobby-seat--me {
+  border-color: rgba(74, 144, 226, 0.6);
+  background: rgba(74, 144, 226, 0.08);
+}
+
+.lobby-seat-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lobby-seat-icon {
+  font-size: 1.6rem;
+  opacity: 0.3;
+}
+
+.lobby-seat-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+/* ── Invite section ──────────────────────────────────────────────────── */
+.lobby-invite-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1.25rem;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lobby-invite-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  margin: 0;
+}
+
+.lobby-invite-code-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.lobby-invite-code {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.2rem;
+  flex: 1;
+}
+
+/* ── Friends quick list ───────────────────────────────────────────────── */
+.lobby-friends-quick {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lobby-friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.lobby-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+}
+
+.lobby-friend-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lobby-friend-name {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────── */
+.lobby-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.lobby-spinner p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.65;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Target-score selector (create room) ─────────────────────────────────── */
+.lobby-target-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.lobby-target-btn {
+  flex: 1 1 60px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e8ea;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.lobby-target-btn:hover { border-color: rgba(255, 255, 255, 0.4); }
+.lobby-target-btn--active {
+  border-color: #7c5cff;
+  background: rgba(124, 92, 255, 0.22);
+}
+.lobby-target-hint {
+  font-size: 0.82rem;
+  opacity: 0.7;
+  margin: 2px 0 10px;
+}

@@ -15,7 +15,8 @@ const GameBoard = () => {
   const { gameId, gameState, error, clearError, animationDelay, setAnimationDelay, showGameOverModal, hideGameOverModal, showGameOverModalNow, animatedTrick, hasAnimatedInitialTrick, passingAnimations } = useGameStore();
   const [debugMode, setDebugMode] = useState(false);
   const isAnimatingRef = useRef(false);
-  
+  const gameBoardRef = useRef(null);
+
   // Refs for player positions
   const playerRefs = {
     bottom: useRef(null),
@@ -128,8 +129,17 @@ const GameBoard = () => {
     }
   };
 
-  const gameBoardRef = useRef(null);
-  
+  // Multiplayer per-seat status badge (disconnected / AI). Undefined in single-player.
+  const statusBadge = (player) => {
+    if (player?.disconnected) {
+      return <span className="player-badge player-badge--offline">🔌 Disconnected</span>;
+    }
+    if (player?.is_ai) {
+      return <span className="player-badge player-badge--ai">🤖 AI</span>;
+    }
+    return null;
+  };
+
   return (
     <div className="game-board" ref={gameBoardRef}>
       {/* Pass Direction Widget */}
@@ -188,28 +198,31 @@ const GameBoard = () => {
       )}
 
       {/* Top Player (AI) */}
-      <div className="player-area player-top" ref={playerRefs.top}>
+      <div className={`player-area player-top ${topPlayer?.disconnected ? 'player-area--offline' : ''}`} ref={playerRefs.top}>
         <div className="player-info">
           <span className="player-name">{topPlayer?.name}</span>
           <span className="player-score">Score: {topPlayer?.score || 0}</span>
+          {statusBadge(topPlayer)}
         </div>
         {renderAIHand(topPlayer, 'horizontal')}
       </div>
 
       {/* Left Player (AI) */}
-      <div className="player-area player-left" ref={playerRefs.left}>
+      <div className={`player-area player-left ${leftPlayer?.disconnected ? 'player-area--offline' : ''}`} ref={playerRefs.left}>
         <div className="player-info">
           <span className="player-name">{leftPlayer?.name}</span>
           <span className="player-score">Score: {leftPlayer?.score || 0}</span>
+          {statusBadge(leftPlayer)}
         </div>
         {renderAIHand(leftPlayer, 'vertical')}
       </div>
 
       {/* Right Player (AI) */}
-      <div className="player-area player-right" ref={playerRefs.right}>
+      <div className={`player-area player-right ${rightPlayer?.disconnected ? 'player-area--offline' : ''}`} ref={playerRefs.right}>
         <div className="player-info">
           <span className="player-name">{rightPlayer?.name}</span>
           <span className="player-score">Score: {rightPlayer?.score || 0}</span>
+          {statusBadge(rightPlayer)}
         </div>
         {renderAIHand(rightPlayer, 'vertical')}
       </div>
