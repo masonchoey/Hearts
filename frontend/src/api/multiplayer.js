@@ -12,9 +12,10 @@ const makeApi = (token) =>
 
 // ── Rooms ─────────────────────────────────────────────────────────────────
 
-export const createRoom = async (token) => {
-  const { data } = await makeApi(token).post('/mp/rooms')
-  return data // { room_id, invite_code, host_id, status, players }
+export const createRoom = async (token, targetScore = 100) => {
+  // targetScore null => infinite play
+  const { data } = await makeApi(token).post('/mp/rooms', { target_score: targetScore })
+  return data // { room_id, invite_code, host_id, status, target_score, players }
 }
 
 export const joinRoom = async (token, inviteCode) => {

@@ -31,10 +31,15 @@ export default function MultiplayerGame({ room, onLeave }) {
     error: wsError,
     playCard: wsPlayCard,
     passCards: wsPassCards,
+    nextRound: wsNextRound,
+    subInAI: wsSubInAI,
+    endMatch: wsEndMatch,
   } = useMultiplayerGame(room.room_id, token)
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState(null)
+  const [, setTick] = useState(0) // 1s ticker to animate the sub-AI countdown
+  const pauseBaseRef = useRef(null)
 
   // Track original playCard so we can restore on unmount
   const origPlayCardRef = useRef(null)
@@ -61,24 +66,60 @@ export default function MultiplayerGame({ room, onLeave }) {
       hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
     }))
 
-    const rotatedCurrentPlayer = ((gameState.current_player ?? 0) - mySeat + 4) % 4
-    const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(
-      s => (s - mySeat + 4) % 4,
+    // Re-derive rotatedPlayers name to flag AI seats for the board.
+    const labeledPlayers = rotatedPlayers.map((p, i) => ({
+      ...p,
+      name: gameState.players?.[(i + mySeat) % 4]?.is_ai ? `${p.name} (AI)` : p.name,
+    }))
+
+    const rotSeat = s => (s - mySeat + 4) % 4
+    const cp = gameState.current_player ?? -1
+    const rotatedCurrentPlayer = cp >= 0 ? rotSeat(cp) : -1 // -1 during round-over/terminal
+    const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(rotSeat)
+
+    // Trick cards carry absolute seats; rotate them to this viewer's layout and
+    // hand them to TableCenter via `animatedTrick` (its render source).
+    const rotatedTrick = (gameState.current_trick ?? []).map(
+      ([s, card]) => [rotSeat(s), card],
     )
 
     useGameStore.setState({
       gameId: `mp_${room.room_id}`,
       gameState: {
         ...gameState,
-        players: rotatedPlayers,
+        players: labeledPlayers,
         current_player: rotatedCurrentPlayer,
         passes_submitted: rotatedPassesSubmitted,
         my_pass_submitted: gameState.my_pass_submitted ?? false,
+        // MultiplayerGame renders its own round/match modals; suppress the
+        // single-player GameBoard modal and its initial-trick animation.
+        game_over: false,
+        winner: null,
+        current_trick: [],
       },
+      animatedTrick: rotatedTrick,
       isLoading: false,
       error: null,
     })
   }, [gameState, mySeat, room.room_id])
+
+  // ── Sub-AI grace countdown: tick every second while paused ─────────────────
+  useEffect(() => {
+    if (!gameState?.paused) {
+      pauseBaseRef.current = null
+      return
+    }
+    const seat = gameState.current_player
+    if (!pauseBaseRef.current || pauseBaseRef.current.seat !== seat) {
+      pauseBaseRef.current = {
+        seat,
+        baseElapsed: gameState.disconnect_elapsed?.[seat] ?? 0,
+        baseAt: Date.now(),
+      }
+    }
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [gameState?.paused, gameState?.current_player, gameState?.disconnect_elapsed])
 
   // ── Override playCard and passCards to use WebSocket ─────────────────────
   useEffect(() => {
@@ -164,6 +205,26 @@ export default function MultiplayerGame({ room, onLeave }) {
     }
   }
 
+  // ── Derived round / match / pause state (absolute seats from the raw state) ──
+  const nameOf = seat => gameState?.players?.[seat]?.name ?? `Player ${seat}`
+  const roundOver = !!gameState?.round_over
+  const matchOver = !!gameState?.game_over
+  const paused = !!gameState?.paused && !roundOver && !matchOver
+  const targetLabel = gameState?.target_score == null ? '∞' : gameState.target_score
+
+  // Sub-AI countdown for the stalled seat
+  const pausedSeat = paused ? gameState.current_player : null
+  const grace = gameState?.ai_sub_grace_seconds ?? 60
+  let subRemaining = null
+  if (pausedSeat !== null && pauseBaseRef.current?.seat === pausedSeat) {
+    const { baseElapsed, baseAt } = pauseBaseRef.current
+    const elapsed = baseElapsed + (Date.now() - baseAt) / 1000
+    subRemaining = Math.max(0, Math.ceil(grace - elapsed))
+  }
+  const canSubAI = pausedSeat !== null && subRemaining === 0
+
+  const seatRows = [0, 1, 2, 3] // absolute seats for the summary tables
+
   return (
     <div className="mp-game-root">
       {/* Top bar */}
@@ -237,6 +298,95 @@ export default function MultiplayerGame({ room, onLeave }) {
       )}
 
       {showScoreboard && <Scoreboard onClose={() => setShowScoreboard(false)} />}
+
+      {/* ── Pause overlay: waiting for a disconnected player ─────────────── */}
+      {gameState && paused && (
+        <div className="mp-overlay">
+          <div className="mp-overlay-card">
+            <div className="spinner" />
+            <h3>Waiting for {nameOf(pausedSeat)} to reconnect…</h3>
+            <p className="mp-overlay-sub">The game is paused until they return or an AI takes over.</p>
+            <div className="mp-overlay-actions">
+              <button
+                className="mp-overlay-btn mp-overlay-btn--primary"
+                onClick={() => wsSubInAI(pausedSeat)}
+                disabled={!canSubAI}
+              >
+                {canSubAI
+                  ? `Play ${nameOf(pausedSeat)}'s seat as AI`
+                  : `Sub in AI available in ${subRemaining}s`}
+              </button>
+              <button className="mp-overlay-btn mp-overlay-btn--danger" onClick={wsEndMatch}>
+                End match for everyone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Round-over modal ─────────────────────────────────────────────── */}
+      {gameState && roundOver && (
+        <div className="mp-overlay">
+          <div className="mp-overlay-card">
+            <h2>Round {gameState.round_number} complete</h2>
+            <p className="mp-overlay-sub">Playing to {targetLabel} — lowest total wins</p>
+            <table className="mp-score-table">
+              <thead>
+                <tr><th>Player</th><th>This round</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                {seatRows.map(seat => (
+                  <tr key={seat} className={seat === gameState.round_winner ? 'mp-row-best' : ''}>
+                    <td>{nameOf(seat)}{gameState.ai_seats?.includes(seat) ? ' (AI)' : ''}</td>
+                    <td>{gameState.round_scores?.[seat] ?? 0}</td>
+                    <td>{gameState.scores?.[seat] ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mp-overlay-actions">
+              <button className="mp-overlay-btn mp-overlay-btn--primary" onClick={wsNextRound}>
+                Next Round →
+              </button>
+              <button className="mp-overlay-btn mp-overlay-btn--danger" onClick={wsEndMatch}>
+                End Match
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Match-over modal ─────────────────────────────────────────────── */}
+      {gameState && matchOver && (
+        <div className="mp-overlay">
+          <div className="mp-overlay-card">
+            <h2>🏆 Game Over</h2>
+            <p className="mp-overlay-sub">
+              {nameOf(gameState.winner)} wins with the lowest total!
+            </p>
+            <table className="mp-score-table">
+              <thead>
+                <tr><th>Player</th><th>Final total</th></tr>
+              </thead>
+              <tbody>
+                {[...seatRows]
+                  .sort((a, b) => (gameState.scores?.[a] ?? 0) - (gameState.scores?.[b] ?? 0))
+                  .map(seat => (
+                    <tr key={seat} className={seat === gameState.winner ? 'mp-row-best' : ''}>
+                      <td>{seat === gameState.winner ? '👑 ' : ''}{nameOf(seat)}</td>
+                      <td>{gameState.scores?.[seat] ?? 0}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            <div className="mp-overlay-actions">
+              <button className="mp-overlay-btn mp-overlay-btn--primary" onClick={onLeave}>
+                Leave Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {wsError && (
         <div className="mp-error-toast">{wsError}</div>

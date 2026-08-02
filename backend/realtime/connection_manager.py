@@ -1,30 +1,33 @@
 """
 WebSocket connection manager for multiplayer game rooms.
-Tracks one WebSocket per player seat per room and broadcasts game state updates.
+Tracks one active WebSocket per player seat per room and broadcasts updates.
+
+Connection identity: each seat maps to exactly one *active* socket. If a seat
+reconnects (or the lobby socket hands off to the game socket), the newer socket
+replaces the old one, and a disconnect only clears the seat if the socket that
+disconnected is still the active one. This prevents a stale socket's close from
+evicting a freshly-connected player (P1-4).
 """
 import json
-import asyncio
-from typing import Dict, Optional
+from typing import Dict
 from fastapi import WebSocket
 
 
 class RoomConnection:
-    """Holds the 4 WebSocket connections for a single room."""
+    """Holds the active WebSocket per seat for a single room."""
 
     def __init__(self):
-        # seat (0-3) → WebSocket
-        self.connections: Dict[int, WebSocket] = {}
+        self.connections: Dict[int, WebSocket] = {}  # seat (0-3) → active WebSocket
 
     def is_full(self) -> bool:
         return len(self.connections) >= 4
 
     def connected_seats(self) -> list[int]:
-        return list(self.connections.keys())
+        return sorted(self.connections.keys())
 
 
 class ConnectionManager:
     def __init__(self):
-        # room_id → RoomConnection
         self.rooms: Dict[str, RoomConnection] = {}
 
     def get_or_create_room(self, room_id: str) -> RoomConnection:
@@ -32,38 +35,69 @@ class ConnectionManager:
             self.rooms[room_id] = RoomConnection()
         return self.rooms[room_id]
 
-    async def connect(self, room_id: str, seat: int, websocket: WebSocket):
+    async def connect(self, room_id: str, seat: int, websocket: WebSocket) -> None:
+        """Accept a socket and make it the active one for this seat.
+
+        Any previous socket for the seat is closed first so it can't linger or
+        later evict this one.
+        """
         await websocket.accept()
         room = self.get_or_create_room(room_id)
+        old = room.connections.get(seat)
+        if old is not None and old is not websocket:
+            try:
+                await old.close(code=4000)  # replaced by a newer connection
+            except Exception:
+                pass
         room.connections[seat] = websocket
 
-    def disconnect(self, room_id: str, seat: int):
-        if room_id in self.rooms:
-            self.rooms[room_id].connections.pop(seat, None)
-            if not self.rooms[room_id].connections:
-                del self.rooms[room_id]
+    def disconnect(self, room_id: str, seat: int, websocket: WebSocket | None = None) -> bool:
+        """Remove the seat's connection — but only if `websocket` is still the
+        active socket for it. Returns True if the active seat was actually removed.
 
-    async def broadcast(self, room_id: str, message: dict):
+        Passing websocket=None forces removal (legacy behaviour).
+        """
+        room = self.rooms.get(room_id)
+        if room is None:
+            return False
+        active = room.connections.get(seat)
+        if active is None:
+            return False
+        if websocket is not None and active is not websocket:
+            # A stale socket closed; the seat has since been taken by a newer
+            # socket. Leave the active one in place.
+            return False
+        room.connections.pop(seat, None)
+        if not room.connections:
+            del self.rooms[room_id]
+        return True
+
+    async def broadcast(self, room_id: str, message: dict) -> None:
         """Send a message to every connected player in the room."""
-        if room_id not in self.rooms:
+        room = self.rooms.get(room_id)
+        if room is None:
             return
         dead = []
-        for seat, ws in self.rooms[room_id].connections.items():
+        for seat, ws in list(room.connections.items()):
             try:
                 await ws.send_text(json.dumps(message))
             except Exception:
-                dead.append(seat)
-        for seat in dead:
-            self.rooms[room_id].connections.pop(seat, None)
+                dead.append((seat, ws))
+        for seat, ws in dead:
+            # Only drop if still the active socket for that seat.
+            if room.connections.get(seat) is ws:
+                room.connections.pop(seat, None)
 
-    async def send_to_seat(self, room_id: str, seat: int, message: dict):
+    async def send_to_seat(self, room_id: str, seat: int, message: dict) -> None:
         """Send a message to a specific seat in a room."""
         room = self.rooms.get(room_id)
         if room and seat in room.connections:
+            ws = room.connections[seat]
             try:
-                await room.connections[seat].send_text(json.dumps(message))
+                await ws.send_text(json.dumps(message))
             except Exception:
-                room.connections.pop(seat, None)
+                if room.connections.get(seat) is ws:
+                    room.connections.pop(seat, None)
 
     def connected_seats(self, room_id: str) -> list[int]:
         room = self.rooms.get(room_id)

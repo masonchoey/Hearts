@@ -89,6 +89,30 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await _ensure_columns(conn)
+
+
+async def _ensure_columns(conn) -> None:
+    """Idempotently add columns introduced after a table already existed.
+
+    SQLAlchemy's create_all never ALTERs existing tables, so newly-added columns
+    (e.g. multiplayer_rooms.target_score) need a lightweight manual migration.
+    """
+    from sqlalchemy import text
+
+    # (table, column, DDL type)
+    wanted = [("multiplayer_rooms", "target_score", "INTEGER")]
+
+    for table, column, coltype in wanted:
+        if IS_POSTGRES:
+            await conn.execute(
+                text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}')
+            )
+        else:
+            result = await conn.execute(text(f"PRAGMA table_info({table})"))
+            existing = {row[1] for row in result.fetchall()}
+            if column not in existing:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
 
 
 async def get_db():

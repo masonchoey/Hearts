@@ -397,3 +397,32 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Target-score selector (create room) ─────────────────────────────────── */
+.lobby-target-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.lobby-target-btn {
+  flex: 1 1 60px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e8ea;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.lobby-target-btn:hover { border-color: rgba(255, 255, 255, 0.4); }
+.lobby-target-btn--active {
+  border-color: #7c5cff;
+  background: rgba(124, 92, 255, 0.22);
+}
+.lobby-target-hint {
+  font-size: 0.82rem;
+  opacity: 0.7;
+  margin: 2px 0 10px;
+}

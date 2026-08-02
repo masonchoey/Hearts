@@ -12,6 +12,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
   const [view, setView] = useState(initialRoomId || initialInviteCode ? 'joining' : 'menu') // menu | create | join | waiting | joining
   const [room, setRoom] = useState(null)
   const [inviteInput, setInviteInput] = useState(initialInviteCode || '')
+  const [targetScore, setTargetScore] = useState(100) // null = infinite
   const [friends, setFriends] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -89,7 +90,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
     setLoading(true)
     setError(null)
     try {
-      const newRoom = await createRoom(token)
+      const newRoom = await createRoom(token, targetScore)
       setRoom(newRoom)
       setView('waiting')
     } catch (e) {
@@ -274,6 +275,34 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
         {view === 'create' && (
           <div className="lobby-action">
             <p>A new room will be created and you'll receive an invite link to share with friends.</p>
+
+            <label className="lobby-label">Play until a player reaches</label>
+            <div className="lobby-target-options">
+              {[50, 100, 150].map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  className={`lobby-target-btn ${targetScore === v ? 'lobby-target-btn--active' : ''}`}
+                  onClick={() => setTargetScore(v)}
+                >
+                  {v}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`lobby-target-btn ${targetScore === null ? 'lobby-target-btn--active' : ''}`}
+                onClick={() => setTargetScore(null)}
+                title="Play forever until the host ends the match"
+              >
+                ∞ Infinite
+              </button>
+            </div>
+            <p className="lobby-target-hint">
+              {targetScore === null
+                ? 'Rounds continue until the host ends the match — lowest total wins.'
+                : `First to ${targetScore} ends the match — lowest total wins.`}
+            </p>
+
             <button className="lobby-btn lobby-btn-primary" onClick={handleCreate} disabled={loading}>
               {loading ? 'Creating…' : 'Create Room'}
             </button>

@@ -122,6 +122,18 @@ export function useMultiplayerGame(roomId, token) {
     }
   }, [])
 
+  const send = useCallback((payload) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      setError('Not connected')
+      return
+    }
+    wsRef.current.send(JSON.stringify(payload))
+  }, [])
+
+  const nextRound = useCallback(() => send({ type: 'next_round' }), [send])
+  const subInAI = useCallback((seat) => send({ type: 'sub_ai', seat }), [send])
+  const endMatch = useCallback(() => send({ type: 'end_match' }), [send])
+
   return {
     gameState,
     mySeat,
@@ -132,5 +144,8 @@ export function useMultiplayerGame(roomId, token) {
     playCard,
     passCards,
     ping,
+    nextRound,
+    subInAI,
+    endMatch,
   }
 }

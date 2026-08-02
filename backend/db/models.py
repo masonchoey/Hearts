@@ -60,6 +60,12 @@ class MultiplayerRoom(Base):
     host_id = Column(String, ForeignKey("users.id"), nullable=False)
     # status: "waiting", "playing", "finished"
     status = Column(String, default="waiting", nullable=False)
+    # Cumulative score at which the match ends (lowest total wins).
+    # NULL = infinite play until the host ends the match.
+    # No column default: the create_room endpoint supplies the value (100 by
+    # default), so an explicit NULL for infinite play is preserved rather than
+    # being overwritten by a Python-side default at flush time.
+    target_score = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     players = relationship("RoomPlayer", back_populates="room", order_by="RoomPlayer.seat")

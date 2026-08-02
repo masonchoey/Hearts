@@ -193,6 +193,37 @@ class HeartsGame:
             # OpenSpiel returns are normalized, need to scale appropriately
             return [26-int(r) for r in returns]
         return [0, 0, 0, 0]
+
+    def _underlying_state(self):
+        """The live pyspiel HeartsState behind the RL Environment (or None)."""
+        return getattr(self._env, "_state", None)
+
+    def get_points(self) -> List[int]:
+        """
+        Running penalty points per player (0-26), straight from OpenSpiel.
+
+        Unlike get_scores(), this is accurate at EVERY point in the round, not
+        just at terminal — OpenSpiel tracks per-trick points internally, including
+        the no-points-on-first-trick and shoot-the-moon rules. Verified invariant:
+        returns()[p] == 26 - points(p).
+        """
+        state = self._underlying_state()
+        if state is None:
+            return [0, 0, 0, 0]
+        try:
+            return [int(state.points(p)) for p in range(4)]
+        except Exception:
+            return [0, 0, 0, 0]
+
+    def get_hearts_broken(self) -> bool:
+        """Authoritative hearts-broken flag from OpenSpiel (falls back to our own)."""
+        state = self._underlying_state()
+        if state is not None:
+            try:
+                return bool(state.hearts_broken())
+            except Exception:
+                pass
+        return self.hearts_broken
     
     def is_passing_phase(self, player_id: int) -> bool:
         """
