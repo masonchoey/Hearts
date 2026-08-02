@@ -515,3 +515,32 @@
 }
 
 
+
+/* ── Per-seat status badges (multiplayer) ────────────────────────────────── */
+.player-badge {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.player-badge--offline {
+  background: rgba(255, 90, 90, 0.18);
+  color: #ff8f8f;
+  border: 1px solid rgba(255, 90, 90, 0.4);
+  animation: badge-pulse 1.4s ease-in-out infinite;
+}
+.player-badge--ai {
+  background: rgba(124, 92, 255, 0.18);
+  color: #b3a4ff;
+  border: 1px solid rgba(124, 92, 255, 0.4);
+}
+.player-area--offline { opacity: 0.55; transition: opacity 0.2s; }
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

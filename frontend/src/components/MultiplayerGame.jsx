@@ -35,11 +35,14 @@ export default function MultiplayerGame({ room, onLeave }) {
     subInAI: wsSubInAI,
     endMatch: wsEndMatch,
   } = useMultiplayerGame(room.room_id, token)
+  const animationDelay = useGameStore(s => s.animationDelay)
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState(null)
   const [, setTick] = useState(0) // 1s ticker to animate the sub-AI countdown
   const pauseBaseRef = useRef(null)
+  const trickClearTimer = useRef(null)     // pending "clear completed trick" timeout
+  const clearedTrickSig = useRef(null)     // signature of the trick we've already cleared
 
   // Track original playCard so we can restore on unmount
   const origPlayCardRef = useRef(null)
@@ -58,36 +61,29 @@ export default function MultiplayerGame({ room, onLeave }) {
       [0, 1, 2, 3].map(seat => gameState.hand_counts?.[seat] ?? 0),
       mySeat,
     )
-    const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => ({
-      ...p,
-      id: i,
-      is_ai: false,
-      // Backend only sends full hand for the viewer; use hand_counts for card backs
-      hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
-    }))
-
-    // Re-derive rotatedPlayers name to flag AI seats for the board.
-    const labeledPlayers = rotatedPlayers.map((p, i) => ({
-      ...p,
-      name: gameState.players?.[(i + mySeat) % 4]?.is_ai ? `${p.name} (AI)` : p.name,
-    }))
+    const disconnectedSeats = gameState.disconnected_seats ?? []
+    const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => {
+      const absSeat = (i + mySeat) % 4
+      return {
+        ...p,
+        id: i,
+        is_ai: !!p.is_ai,                             // flag AI-controlled seats
+        disconnected: disconnectedSeats.includes(absSeat), // flag dropped players
+        // Backend only sends full hand for the viewer; use hand_counts for card backs
+        hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
+      }
+    })
 
     const rotSeat = s => (s - mySeat + 4) % 4
     const cp = gameState.current_player ?? -1
     const rotatedCurrentPlayer = cp >= 0 ? rotSeat(cp) : -1 // -1 during round-over/terminal
     const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(rotSeat)
 
-    // Trick cards carry absolute seats; rotate them to this viewer's layout and
-    // hand them to TableCenter via `animatedTrick` (its render source).
-    const rotatedTrick = (gameState.current_trick ?? []).map(
-      ([s, card]) => [rotSeat(s), card],
-    )
-
     useGameStore.setState({
       gameId: `mp_${room.room_id}`,
       gameState: {
         ...gameState,
-        players: labeledPlayers,
+        players: rotatedPlayers,
         current_player: rotatedCurrentPlayer,
         passes_submitted: rotatedPassesSubmitted,
         my_pass_submitted: gameState.my_pass_submitted ?? false,
@@ -97,11 +93,48 @@ export default function MultiplayerGame({ room, onLeave }) {
         winner: null,
         current_trick: [],
       },
-      animatedTrick: rotatedTrick,
+      // animatedTrick is owned by the trick-display effect below.
       isLoading: false,
       error: null,
     })
   }, [gameState, mySeat, room.room_id])
+
+  // ── Trick display: rotate to this viewer, and auto-clear a COMPLETED trick ──
+  // The server keeps the 4-card trick until the next card is played; we instead
+  // show it briefly then clear it, so the table doesn't stay full waiting on the
+  // next play. Linger scales with the animation-delay slider.
+  useEffect(() => {
+    if (!gameState || mySeat === null) return
+    const rotSeat = s => (s - mySeat + 4) % 4
+    const rawTrick = gameState.current_trick ?? []
+    const rotated = rawTrick.map(([s, card]) => [rotSeat(s), card])
+    const sig = JSON.stringify(rawTrick)
+
+    clearTimeout(trickClearTimer.current)
+
+    if (rawTrick.length < 4) {
+      // Growing (or empty) trick — show it live and reset the cleared marker.
+      clearedTrickSig.current = null
+      useGameStore.setState({ animatedTrick: rotated })
+      return
+    }
+
+    // Completed 4-card trick.
+    if (clearedTrickSig.current === sig) {
+      // Already cleared this one (re-broadcast from an unrelated update) — keep empty.
+      useGameStore.setState({ animatedTrick: [] })
+      return
+    }
+    // New completed trick: show it, then clear after a proportional linger.
+    useGameStore.setState({ animatedTrick: rotated })
+    const linger = Math.max(1000, Math.min(animationDelay * 4, 3500))
+    trickClearTimer.current = setTimeout(() => {
+      clearedTrickSig.current = sig
+      useGameStore.setState({ animatedTrick: [] })
+    }, linger)
+  }, [gameState, mySeat, animationDelay])
+
+  useEffect(() => () => clearTimeout(trickClearTimer.current), [])
 
   // ── Sub-AI grace countdown: tick every second while paused ─────────────────
   useEffect(() => {
