@@ -104,29 +104,76 @@ const GameBoard = () => {
   const leftPlayer = players[1];
   const rightPlayer = players[3];
 
+  // Helper: fan geometry for an AI hand at a given table position.
+  // Returns an inline transform per card so opponents' hands curve like a real
+  // fanned hand (arc peaks toward the table, cards rotate around the held end).
+  const aiFanStyle = (index, count, position) => {
+    const mid = (count - 1) / 2;
+    const dist = index - mid;
+    const anglePer = count > 1 ? Math.min(4.5, 46 / (count - 1)) : 0;
+    const curve = 0.9; // arc depth
+    const arc = (mid * mid - dist * dist) * curve; // peak at the middle card
+    const rot = dist * anglePer;
+    if (position === 'top') {
+      // Hangs from the top edge, fans downward toward the table.
+      return { transform: `translateY(${arc}px) rotate(${rot}deg)`, zIndex: index };
+    }
+    if (position === 'left') {
+      // Column on the left, fans out to the right toward the table.
+      return { transform: `translateX(${arc}px) rotate(${-rot}deg)`, zIndex: index };
+    }
+    // right: mirror of left
+    return { transform: `translateX(${-arc}px) rotate(${rot}deg)`, zIndex: index };
+  };
+
   // Helper function to render AI hands
-  const renderAIHand = (player, orientation = 'horizontal') => {
+  const renderAIHand = (player, position = 'top') => {
+    const orientation = position === 'top' ? 'horizontal' : 'vertical';
+    const cardCount = player?.hand?.length || 0;
+
     if (debugMode && player?.hand) {
       return (
-        <div className={`ai-hand horizontal debug-mode`}>
+        <div className={`ai-hand ${orientation} ${position} debug-mode`}>
           {player.hand.map((card, index) => (
-            <div key={`${card.suit}-${card.rank}-${index}`} className="ai-card-wrapper">
-              <Card card={card} className={`card-${orientation === 'horizontal' ? 'horizontal' : ''}`}/>
+            <div
+              key={`${card.suit}-${card.rank}-${index}`}
+              className="ai-card-wrapper"
+              style={aiFanStyle(index, cardCount, position)}
+            >
+              <Card card={card} />
             </div>
           ))}
         </div>
       );
-    } else {
-      // Show card backs - backend now sends all players' hands
-      const cardCount = player?.hand?.length;
-      return (
-        <div className={`ai-hand ${orientation === 'vertical' ? 'vertical' : ''}`}>
-          {Array(cardCount).fill(0).map((_, i) => (
-            <div key={i} className={orientation === 'vertical' ? 'card-back-horizontal' : 'card-back'} />
-          ))}
-        </div>
-      );
     }
+
+    // Show card backs - backend now sends all players' hands
+    return (
+      <div className={`ai-hand ${orientation} ${position}`}>
+        {Array(cardCount).fill(0).map((_, i) => (
+          <div
+            key={i}
+            className="ai-card-wrapper"
+            style={aiFanStyle(i, cardCount, position)}
+          >
+            <div className={orientation === 'vertical' ? 'card-back-horizontal' : 'card-back'} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // A player shows "Passed" once they've locked in their pass. In multiplayer
+  // this comes from gameState.passes_submitted; in single-player every seat
+  // passes together, which we detect from the in-flight passing animation.
+  const passesSubmitted = gameState?.passes_submitted || [];
+  const passingFromIds = new Set((passingAnimations || []).map(a => a.fromPlayerId));
+  const showPassBadges = gameState?.is_passing_phase || passingFromIds.size > 0;
+  const passedBadge = (player) => {
+    if (!showPassBadges || player?.id == null) return null;
+    const passed = passesSubmitted.includes(player.id) || passingFromIds.has(player.id);
+    if (!passed) return null;
+    return <span className="player-badge player-badge--passed">✓ Passed</span>;
   };
 
   return (
@@ -191,8 +238,9 @@ const GameBoard = () => {
         <div className="player-info">
           <span className="player-name">{topPlayer?.name}</span>
           <span className="player-score">Score: {topPlayer?.score || 0}</span>
+          {passedBadge(topPlayer)}
         </div>
-        {renderAIHand(topPlayer, 'horizontal')}
+        {renderAIHand(topPlayer, 'top')}
       </div>
 
       {/* Left Player (AI) */}
@@ -200,8 +248,9 @@ const GameBoard = () => {
         <div className="player-info">
           <span className="player-name">{leftPlayer?.name}</span>
           <span className="player-score">Score: {leftPlayer?.score || 0}</span>
+          {passedBadge(leftPlayer)}
         </div>
-        {renderAIHand(leftPlayer, 'vertical')}
+        {renderAIHand(leftPlayer, 'left')}
       </div>
 
       {/* Right Player (AI) */}
@@ -209,8 +258,9 @@ const GameBoard = () => {
         <div className="player-info">
           <span className="player-name">{rightPlayer?.name}</span>
           <span className="player-score">Score: {rightPlayer?.score || 0}</span>
+          {passedBadge(rightPlayer)}
         </div>
-        {renderAIHand(rightPlayer, 'vertical')}
+        {renderAIHand(rightPlayer, 'right')}
       </div>
 
       {/* Center Table */}
@@ -221,6 +271,7 @@ const GameBoard = () => {
         <div className="player-info">
           <span className="player-name you">{humanPlayer?.name}</span>
           <span className="player-score">Score: {humanPlayer?.score || 0}</span>
+          {passedBadge(humanPlayer)}
         </div>
         <PlayerHand 
           cards={humanPlayer?.hand || []} 

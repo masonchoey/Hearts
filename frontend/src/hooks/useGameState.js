@@ -16,6 +16,11 @@ export const useGameStore = create((set, get) => ({
   showGameOverModal: false, // Control visibility of game over modal
   animatedTrick: [], // Temporary state for card animations - array of [playerId, card] tuples
   hasAnimatedInitialTrick: false, // Track if we've animated the initial trick on game start
+  playedFromRect: null, // On-screen rect of the human's just-played card, so the table card can fly out of the hand
+  passedFromRects: [], // On-screen rects of the human's selected pass cards, so they fly out of their real hand slots
+  receivedCards: [], // Cards the human just received from a pass, briefly highlighted in the hand
+  receivedFromPos: null, // Table position ('left'|'top'|'right') the received cards flew in from
+  enableDealAnimation: true, // Deal-in animation runs only on a fresh deal, not for cards received from a pass
   passingAnimations: [], // Array of { fromPlayerId, toPlayerId, cards, startPos, endPos } for passing animations
 
   // Actions
@@ -30,6 +35,7 @@ export const useGameStore = create((set, get) => ({
         selectedCards: [],
         hasAnimatedInitialTrick: false, // Reset animation flag
         animatedTrick: [], // Clear any previous animations
+        enableDealAnimation: true, // Fresh deal — animate the cards in
       });
       
       // Animation will be handled by GameBoard when it mounts
@@ -205,6 +211,7 @@ export const useGameStore = create((set, get) => ({
         showGameOverModal: false,
         animatedTrick: [],
         hasAnimatedInitialTrick: false, // Reset animation flag for new game
+        enableDealAnimation: true, // Fresh deal — animate the cards in
       });
       
       // Animation will be handled by GameBoard when it mounts
@@ -234,7 +241,7 @@ export const useGameStore = create((set, get) => ({
   passCards: async (playerId, cards) => {
     const { gameId, isLoading, animationDelay, gameState } = get();
     if (!gameId) return;
-    
+
     // Prevent double-clicks
     if (isLoading) {
       console.warn('Already processing a move, ignoring...');
@@ -243,111 +250,105 @@ export const useGameStore = create((set, get) => ({
 
     console.log('Passing cards:', { playerId, cards });
     set({ isLoading: true, error: null });
-    
-    // Calculate pass direction and destination player
+
+    // Pass direction → destination seats
     const passDirection = gameState?.pass_direction;
-    let toPlayerId = null;
-    
-    if (passDirection === 'Left') {
-      toPlayerId = (playerId + 1) % 4;
-    } else if (passDirection === 'Right') {
-      toPlayerId = (playerId + 3) % 4;
-    } else if (passDirection === 'Across') {
-      toPlayerId = (playerId + 2) % 4;
+    const dest = (id) => {
+      if (passDirection === 'Left') return (id + 1) % 4;
+      if (passDirection === 'Right') return (id + 3) % 4;
+      if (passDirection === 'Across') return (id + 2) % 4;
+      return null;
+    };
+    const toPlayerId = dest(playerId);
+
+    const passedFromRects = get().passedFromRects || [];
+    // Cards we keep — used to work out which of the new hand were received.
+    const humanHand = gameState?.players?.find(p => p.id === playerId)?.hand || [];
+    const keptHand = humanHand.filter(c =>
+      !cards.some(pc => pc.suit === c.suit && pc.rank === c.rank)
+    );
+
+    // Resolve the whole pass on the backend FIRST, so we can play a single
+    // synchronized animation (everyone's cards move at once) instead of one
+    // animation before the swap and another after.
+    let data;
+    try {
+      data = await passCards(gameId, playerId, cards);
+      console.log('Pass successful, new state:', data.state);
+    } catch (error) {
+      console.error('Pass cards error:', error.response?.data || error);
+      const errorMsg = error.response?.data?.detail || error.message;
+      set({ error: errorMsg, isLoading: false, passingAnimations: [], passedFromRects: [] });
+      return;
     }
-    
-    // Remove cards from hand immediately for visual feedback
-    const currentGameState = get().gameState;
-    const updatedPlayers = currentGameState.players.map(player => {
-      if (player.id === playerId) {
-        return {
-          ...player,
-          hand: player.hand.filter(c => 
-            !cards.some(passedCard => passedCard.suit === c.suit && passedCard.rank === c.rank)
-          )
-        };
-      }
-      return player;
-    });
-    
-    // Update state to remove cards from hand
-    set({
-      gameState: {
-        ...currentGameState,
-        players: updatedPlayers
-      }
-    });
-    
-    // Create animations for ALL players (human + AI)
-    // Human player passes actual cards, AI players pass card backs
+
+    const newHand = data.state.players?.find(p => p.id === playerId)?.hand || [];
+    const received = newHand.filter(nc =>
+      !keptHand.some(kc => kc.suit === nc.suit && kc.rank === nc.rank)
+    );
+    const posMap = { 0: 'bottom', 1: 'left', 2: 'top', 3: 'right' };
+    let fromPlayer = null;
+    if (passDirection === 'Left') fromPlayer = (playerId + 3) % 4;
+    else if (passDirection === 'Right') fromPlayer = (playerId + 1) % 4;
+    else if (passDirection === 'Across') fromPlayer = (playerId + 2) % 4;
+    const receivedFromPos = fromPlayer != null ? posMap[fromPlayer] : null;
+
+    // Build the single set of packets. The human's OUTGOING cards fly from
+    // their real hand slots; the human's INCOMING cards are handled by the
+    // received-card fly-in in PlayerHand (so they land in the actual slots);
+    // AI↔AI passes fly hand-to-hand as card backs. All start together.
     const allAnimations = [];
-    
-    if (toPlayerId !== null) {
-      // Human player animation with actual cards
+    if (toPlayerId !== null && animationDelay > 0) {
       allAnimations.push({
         fromPlayerId: playerId,
-        toPlayerId: toPlayerId,
-        cards: cards,
-        passDirection: passDirection,
-        isHuman: true
+        toPlayerId,
+        cards,
+        fromRects: passedFromRects,
+        passDirection,
+        isHuman: true,
       });
-      
-      // AI player animations with card backs
-      for (let aiPlayerId = 0; aiPlayerId < 4; aiPlayerId++) {
-        if (aiPlayerId === playerId) continue; // Skip human player
-        
-        // Calculate AI's destination based on pass direction
-        let aiToPlayerId = null;
-        if (passDirection === 'Left') {
-          aiToPlayerId = (aiPlayerId + 1) % 4;
-        } else if (passDirection === 'Right') {
-          aiToPlayerId = (aiPlayerId + 3) % 4;
-        } else if (passDirection === 'Across') {
-          aiToPlayerId = (aiPlayerId + 2) % 4;
-        }
-        
-        if (aiToPlayerId !== null) {
-          // For AI, we'll pass placeholder cards (will be rendered as card backs)
+      for (let ai = 0; ai < 4; ai++) {
+        if (ai === playerId) continue;
+        const aiTo = dest(ai);
+        if (aiTo != null && aiTo !== playerId) {
           allAnimations.push({
-            fromPlayerId: aiPlayerId,
-            toPlayerId: aiToPlayerId,
-            cards: [{suit: 'back', rank: '?'}, {suit: 'back', rank: '?'}, {suit: 'back', rank: '?'}],
-            passDirection: passDirection,
-            isHuman: false
+            fromPlayerId: ai,
+            toPlayerId: aiTo,
+            cards: [{ suit: 'back', rank: '?' }, { suit: 'back', rank: '?' }, { suit: 'back', rank: '?' }],
+            passDirection,
+            isHuman: false,
           });
         }
       }
     }
-    
-    // Trigger animation for all players
-    if (allAnimations.length > 0 && animationDelay > 0) {
-      set({ passingAnimations: allAnimations });
-      
-      // Animation duration scales with slider (min 800ms, max 5 seconds)
-      // Add extra 100ms to ensure cards fully arrive before clearing
+
+    // Reveal the new hand AND kick off every packet + the received fly-in at
+    // the same instant, so the whole pass reads as one smooth motion. The
+    // returned state already includes the first trick's lead (AI plays through
+    // to our turn); hold that back so the table stays clear during the pass.
+    set({
+      gameState: { ...data.state, current_trick: [] },
+      hasAnimatedInitialTrick: false,
+      animatedTrick: [],
+      selectedCards: [],
+      enableDealAnimation: false,
+      passedFromRects: [],
+      receivedCards: received,
+      receivedFromPos,
+      passingAnimations: allAnimations,
+    });
+
+    if (allAnimations.length > 0) {
       const animationDuration = Math.max(800, Math.min(animationDelay * 7, 5000)) + 100;
       await new Promise(resolve => setTimeout(resolve, animationDuration));
-      
-      // Clear animation
-      set({ passingAnimations: [] });
+      // Pass done — reveal the full state; the lead card animates onto the table.
+      set({ passingAnimations: [], isLoading: false, gameState: data.state });
+    } else {
+      set({ isLoading: false, gameState: data.state });
     }
-    
-    try {
-      const data = await passCards(gameId, playerId, cards);
-      console.log('Pass successful, new state:', data.state);
-      
-      // The gym environment automatically processes all AI moves (including AI passing)
-      // So the returned state already has it back to the human's turn
-      set({
-        gameState: data.state,
-        isLoading: false,
-        selectedCards: [],
-      });
-    } catch (error) {
-      console.error('Pass cards error:', error.response?.data || error);
-      const errorMsg = error.response?.data?.detail || error.message;
-      set({ error: errorMsg, isLoading: false, passingAnimations: [] });
-    }
+
+    // Clear the received-card highlight after it has had a few seconds to be seen.
+    setTimeout(() => set({ receivedCards: [], receivedFromPos: null }), 3200);
   },
 
   selectCard: (card) => {

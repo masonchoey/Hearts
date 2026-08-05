@@ -19,27 +19,43 @@
   /* Animation handled via inline styles for precise control */
 }
 
+/* Passing cards match the opponents' card size. */
+.passing-card-face .card {
+  --card-width: 92px;
+  --card-height: 129px;
+}
+
+/* Card back for AI passes — matches the crimson weave used elsewhere. */
 .card-back-animation {
-  width: 66px;
-  height: 92px;
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  border: 2px solid #1a252f;
-  border-radius: 9px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  width: 92px;
+  height: 129px;
+  border-radius: 7px;
+  border: 3px solid #f4f1ea;
+  background-color: #b02a37;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.10) 0 4px, transparent 4px 9px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.10) 0 4px, transparent 4px 9px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
   position: relative;
 }
 
-/* Add a subtle pattern to card backs during animation */
 .card-back-animation::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 33px;
-  height: 33px;
-  border: 3.3px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+  inset: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+}
+
+.card-back-animation::after {
+  content: '♥';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 1.5rem;
 }
 
 

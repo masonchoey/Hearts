@@ -1,11 +1,13 @@
 .game-board {
   width: 95vw;
-  height: 95vh;
+  /* Fit inside .app-main's 2rem padding (top + bottom) so the bottom controls
+     are never clipped by the viewport edge. */
+  height: calc(100vh - 4rem);
   position: relative;
   display: grid;
-  grid-template-rows: minmax(80px, auto) 1fr minmax(180px, auto);
+  grid-template-rows: minmax(52px, auto) 1fr minmax(190px, auto);
   grid-template-columns: minmax(80px, auto) 1fr minmax(80px, auto);
-  padding: 0.5rem;
+  padding: 0.25rem 0.5rem 0.75rem;
   box-sizing: border-box;
 }
 
@@ -49,15 +51,15 @@
 }
 
 .player-area.player-right {
-  min-height: 541.21px;
+  min-height: 0;
 }
 
 .player-area.player-left {
-  min-height: 541.21px;
+  min-height: 0;
 }
 
 .player-area.player-top {
-  min-height: 107.91px;
+  min-height: 0;
 }
 
 .player-info {
@@ -68,6 +70,18 @@
   padding: 0.45rem 0.9rem;
   border-radius: 18px;
   color: white;
+  position: relative;
+  z-index: 30; /* stay above the raised middle of the fanned hand */
+}
+
+/* Lift the bottom player's label clear of the fan's raised middle cards.
+   translateY keeps its layout slot (so the hand/buttons don't move) while the
+   pill floats above the peak. */
+.player-bottom .player-info {
+  margin-bottom: 0.5rem;
+  transform: translateY(-62px);
+  position: relative;
+  z-index: 30;
 }
 
 .player-name {
@@ -77,6 +91,27 @@
 
 .player-name.you {
   color: #3498db;
+}
+
+/* "Passed" badge shown on a player once they've locked in their pass */
+.player-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.12rem 0.5rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.player-badge--passed {
+  color: #eafaf0;
+  background: rgba(39, 174, 96, 0.35);
+  border: 1px solid rgba(39, 174, 96, 0.9);
+  animation: badgePop 0.25s ease;
+}
+
+@keyframes badgePop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .player-score {
@@ -93,12 +128,14 @@
   grid-column: 1;
   grid-row: 2;
   align-items: flex-start;
+  justify-content: center; /* vertically center the side fan */
 }
 
 .player-right {
   grid-column: 3;
   grid-row: 2;
   align-items: flex-end;
+  justify-content: center; /* vertically center the side fan */
 }
 
 .player-bottom {
@@ -108,79 +145,75 @@
 
 .ai-hand {
   display: flex;
-  margin-left: -20.9px; /* Offset the negative margin on first card */
+  justify-content: center;
+  align-items: center;
 }
 
 .ai-hand.vertical {
-  padding-top: 31.35px;
-  padding-right: 10.45px;
-  padding-left: 10.45px;
-
   flex-direction: column;
-  margin-left: 0;
-  margin-top: -20.9px; /* Offset the negative margin on first card */
 }
 
-/* Overlap AI cards */
-.ai-hand > div {
-  margin-left: -20.9px; /* Overlap horizontal cards */
+/* Each card in an AI hand carries its fan transform inline; the origin sits at
+   the "held" edge so rotation pivots naturally into an arc. */
+.ai-card-wrapper {
+  transition: transform 0.2s ease;
 }
 
-.ai-hand > div:first-child {
-  margin-left: 0; /* Don't offset the first card */
-}
+.ai-hand.top .ai-card-wrapper { transform-origin: center top; }
+.ai-hand.left .ai-card-wrapper { transform-origin: left center; }
+.ai-hand.right .ai-card-wrapper { transform-origin: right center; }
 
-.ai-hand.vertical > div {
-  margin-left: 0;
-  margin-top: -31.35px; /* Overlap vertical cards */
-}
+/* Overlap along the fan */
+.ai-hand.horizontal .ai-card-wrapper { margin-left: -50px; }
+.ai-hand.horizontal .ai-card-wrapper:first-child { margin-left: 0; }
 
-.ai-hand.vertical > div:first-child {
-  margin-top: 0; /* Don't offset the first card */
-}
+.ai-hand.vertical .ai-card-wrapper { margin-top: -66px; }
+.ai-hand.vertical .ai-card-wrapper:first-child { margin-top: 0; }
 
+/* ---- Realistic card back (shared by portrait + landscape) ---- */
+.card-back,
 .card-back-horizontal {
-  width: 94px;
-  height: 67px;
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  border: 2px solid #1a252f;
-  border-radius: 9px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 7px;
+  border: 3px solid #f4f1ea;
+  background-color: #b02a37;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.10) 0 4px, transparent 4px 9px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.10) 0 4px, transparent 4px 9px);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.35);
   position: relative;
 }
 
+/* Inner border frame */
+.card-back::before,
 .card-back-horizontal::before {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 33px;
-  height: 33px;
-  border: 3.3px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+  inset: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+}
+
+/* Center emblem */
+.card-back::after,
+.card-back-horizontal::after {
+  content: '♥';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 1.6rem;
 }
 
 .card-back {
-  width: 67px;
-  height: 94px;
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  border: 2px solid #1a252f;
-  border-radius: 9px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  position: relative;
+  width: 92px;
+  height: 129px;
 }
 
-.card-back::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 33px;
-  height: 33px;
-  border: 3.3px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+.card-back-horizontal {
+  width: 132px;
+  height: 94px;
 }
 
 /* Game Over Modal */
@@ -431,23 +464,12 @@
   gap: 0rem;
 }
 
-.ai-card-wrapper {
-  transition: transform 0.2s ease;
-  margin-left: -20.9px; /* Overlap cards in debug mode */
-}
-
-.ai-card-wrapper:first-child {
-  margin-left: 0;
-}
-
-.ai-hand.vertical .ai-card-wrapper {
-  margin-left: 0;
-  margin-top: -31.35px; /* Overlap vertical cards in debug mode */
-}
-
-.ai-hand.vertical .ai-card-wrapper:first-child {
-  margin-top: 0;
-}
+/* Overlap for debug-mode face cards (fan margins for card-backs are defined
+   with the .ai-hand.horizontal/.vertical rules above). */
+.ai-hand.debug-mode.horizontal .ai-card-wrapper { margin-left: -64px; }
+.ai-hand.debug-mode.horizontal .ai-card-wrapper:first-child { margin-left: 0; }
+.ai-hand.debug-mode.vertical .ai-card-wrapper { margin-top: -90px; }
+.ai-hand.debug-mode.vertical .ai-card-wrapper:first-child { margin-top: 0; }
 
 /* .ai-card-wrapper:hover {
   transform: scale(0.85);
