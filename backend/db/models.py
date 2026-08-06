@@ -66,6 +66,9 @@ class MultiplayerRoom(Base):
     # default), so an explicit NULL for infinite play is preserved rather than
     # being overwritten by a Python-side default at flush time.
     target_score = Column(Integer, nullable=True)
+    # Custom game config: number of seats (3/4/5) and JSON-encoded scoring rules.
+    player_count = Column(Integer, default=4, nullable=False)
+    rules_config = Column(String, nullable=True)  # JSON: {"jd_bonus": bool, "ten_club_doubler": bool}
     created_at = Column(DateTime, default=datetime.utcnow)
 
     players = relationship("RoomPlayer", back_populates="room", order_by="RoomPlayer.seat")

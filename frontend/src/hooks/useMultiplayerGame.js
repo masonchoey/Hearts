@@ -131,7 +131,6 @@ export function useMultiplayerGame(roomId, token) {
   }, [])
 
   const nextRound = useCallback(() => send({ type: 'next_round' }), [send])
-  const subInAI = useCallback((seat) => send({ type: 'sub_ai', seat }), [send])
   const endMatch = useCallback(() => send({ type: 'end_match' }), [send])
 
   return {
@@ -145,7 +144,6 @@ export function useMultiplayerGame(roomId, token) {
     passCards,
     ping,
     nextRound,
-    subInAI,
     endMatch,
   }
 }

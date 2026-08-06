@@ -4,29 +4,24 @@
  */
 import { useGameStore } from '../hooks/useGameState';
 import Card from './Card';
+import { slotForIndex } from './seatLayout';
 import './TableCenter.css';
 
 const TableCenter = () => {
-  const { animatedTrick, animationDelay } = useGameStore();
-  
+  const { animatedTrick, animationDelay, gameState } = useGameStore();
+
   // Use animatedTrick during animation, otherwise show the actual trick
   // animatedTrick will be [] when not animating, so we'll use trick in that case
   const displayTrick = animatedTrick.length > 0 ? animatedTrick : [];
-  
+
   // Calculate glide duration based on animation delay
   // Scale it appropriately: min 0.3s, max 2s
   const glideDuration = Math.max(300, Math.min(animationDelay * 2, 2000));
-  
-  // Map player positions for display
-  const getCardPosition = (playerId) => {
-    const positions = {
-      0: 'bottom',
-      3: 'right',
-      2: 'top',
-      1: 'left'
-    };
-    return positions[playerId] || 'bottom';
-  };
+
+  const playerCount = gameState?.player_count || gameState?.players?.length || 4;
+
+  // Player ids here are already rotated so the viewer is index 0 (bottom).
+  const getCardPosition = (playerId) => slotForIndex(playerCount, playerId);
 
   return (
     <div className="table-center">
