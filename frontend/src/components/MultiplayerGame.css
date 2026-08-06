@@ -251,3 +251,72 @@
 @keyframes mp-spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── Round / match / pause overlays ──────────────────────────────────────── */
+.mp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 10, 20, 0.72);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+.mp-overlay-card {
+  background: #14181f;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  color: #e8e8ea;
+}
+.mp-overlay-card h2 { margin: 6px 0 4px; }
+.mp-overlay-card h3 { margin: 14px 0 4px; }
+.mp-overlay-sub { opacity: 0.72; font-size: 0.9rem; margin: 0 0 14px; }
+
+.mp-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 18px;
+  font-size: 0.95rem;
+}
+.mp-score-table th,
+.mp-score-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mp-score-table th { opacity: 0.6; font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+.mp-score-table td:not(:first-child),
+.mp-score-table th:not(:first-child) { text-align: right; }
+.mp-row-best { color: #6ee7a8; font-weight: 700; }
+
+.mp-overlay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.mp-overlay-btn {
+  flex: 1 1 auto;
+  min-width: 140px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s;
+}
+.mp-overlay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mp-overlay-btn:not(:disabled):hover { filter: brightness(1.12); }
+.mp-overlay-btn--primary { background: #7c5cff; color: #fff; }
+.mp-overlay-btn--danger {
+  background: transparent;
+  border: 1px solid rgba(255, 120, 120, 0.5);
+  color: #ff9d9d;
+}

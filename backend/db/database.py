@@ -89,31 +89,35 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_add_missing_columns)
+        await _ensure_columns(conn)
 
 
-# Columns added after a table's initial creation. ``create_all`` never ALTERs an
-# existing table, so we add them by hand (idempotent, works on SQLite + Postgres).
-_COLUMN_MIGRATIONS: dict[str, dict[str, str]] = {
-    "multiplayer_rooms": {
-        "player_count": "INTEGER NOT NULL DEFAULT 4",
-        "rules_config": "VARCHAR",
-    },
-}
+async def _ensure_columns(conn) -> None:
+    """Idempotently add columns introduced after a table already existed.
 
+    SQLAlchemy's create_all never ALTERs existing tables, so newly-added columns
+    (e.g. multiplayer_rooms.target_score / player_count / rules_config) need a
+    lightweight manual migration.
+    """
+    from sqlalchemy import text
 
-def _add_missing_columns(sync_conn) -> None:
-    from sqlalchemy import inspect, text
+    # (table, column, DDL type)
+    wanted = [
+        ("multiplayer_rooms", "target_score", "INTEGER"),
+        ("multiplayer_rooms", "player_count", "INTEGER NOT NULL DEFAULT 4"),
+        ("multiplayer_rooms", "rules_config", "VARCHAR"),
+    ]
 
-    inspector = inspect(sync_conn)
-    existing_tables = set(inspector.get_table_names())
-    for table, columns in _COLUMN_MIGRATIONS.items():
-        if table not in existing_tables:
-            continue  # create_all just made it with all columns present
-        present = {col["name"] for col in inspector.get_columns(table)}
-        for name, ddl in columns.items():
-            if name not in present:
-                sync_conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {name} {ddl}'))
+    for table, column, coltype in wanted:
+        if IS_POSTGRES:
+            await conn.execute(
+                text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {coltype}')
+            )
+        else:
+            result = await conn.execute(text(f"PRAGMA table_info({table})"))
+            existing = {row[1] for row in result.fetchall()}
+            if column not in existing:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
 
 
 async def get_db():

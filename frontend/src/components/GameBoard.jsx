@@ -136,6 +136,14 @@ const GameBoard = () => {
     }
   };
 
+  // Multiplayer per-seat status badge (disconnected). Undefined in single-player.
+  const statusBadge = (player) => {
+    if (player?.disconnected) {
+      return <span className="player-badge player-badge--offline">🔌 Disconnected</span>;
+    }
+    return null;
+  };
+
   return (
     <div className="game-board" ref={gameBoardRef}>
       {/* Pass Direction Widget */}
@@ -197,12 +205,13 @@ const GameBoard = () => {
       {opponents.map(({ player, slot, orientation }) => (
         <div
           key={player?.id ?? slot}
-          className={`player-area player-${slot}`}
+          className={`player-area player-${slot} ${player?.disconnected ? 'player-area--offline' : ''}`}
           ref={playerRefs[slot]}
         >
           <div className="player-info">
             <span className="player-name">{player?.name}</span>
             <span className="player-score">Score: {player?.score || 0}</span>
+            {statusBadge(player)}
           </div>
           {renderAIHand(player, orientation)}
         </div>

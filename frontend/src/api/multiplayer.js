@@ -13,14 +13,15 @@ const makeApi = (token) =>
 // ── Rooms ─────────────────────────────────────────────────────────────────
 
 export const createRoom = async (token, config = {}) => {
-  // config: { player_count, jd_bonus, ten_club_doubler }
+  // config: { target_score (null = infinite), player_count, jd_bonus, ten_club_doubler }
   const body = {
+    target_score: config.target_score === undefined ? 100 : config.target_score,
     player_count: config.player_count ?? 4,
     jd_bonus: config.jd_bonus ?? false,
     ten_club_doubler: config.ten_club_doubler ?? false,
   }
   const { data } = await makeApi(token).post('/mp/rooms', body)
-  return data // { room_id, invite_code, host_id, status, player_count, rules, players }
+  return data // { room_id, invite_code, host_id, status, target_score, player_count, rules, players }
 }
 
 export const joinRoom = async (token, inviteCode) => {
