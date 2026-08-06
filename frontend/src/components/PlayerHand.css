@@ -5,30 +5,53 @@
 }
 
 .player-hand {
-  display: flex;
-  padding: 0.5rem;
+  /* Cards are absolutely positioned inside this fixed-size tray. Their whole
+     placement (horizontal offset, arc, rotation) lives in one transform, so
+     any reflow — e.g. a pass swapping cards — animates smoothly instead of
+     snapping (flex layout can't animate horizontal repositioning). */
+  position: relative;
+  width: 720px;
+  max-width: 92vw;
+  height: 150px;
+  padding: 0;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
-  min-height: 100px;
-  position: relative;
-  justify-content: center; /* Center the cards in the hand */
+  overflow: visible; /* let lifted/fanned cards spill out of the tray */
 }
 
 .card-wrapper {
+  /* Composable transform pieces: horizontal fan offset + arc lift + rotation +
+     interaction lift. --rot-mult scales the fan angle for a straightened lift. */
+  --extra-lift: 0px;
+  --extra-scale: 1;
+  --rot-mult: 1;
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  animation: dealCard 0.5s ease calc(var(--card-index) * 0.05s) both;
-  margin-left: -37.05px; /* Overlap cards */
+  transform-origin: center bottom;
+  transform:
+    translateX(calc(-50% + var(--offset-x, 0px)))
+    translateY(var(--card-lift, 0px))
+    rotate(calc(var(--card-rot, 0deg) * var(--rot-mult)))
+    translateY(var(--extra-lift))
+    scale(var(--extra-scale));
+  /* Smooth ease-out (no overshoot) so a hand reflow glides cleanly. */
+  transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.22s ease;
 }
 
-.card-wrapper:first-child {
-  margin-left: 0; /* Don't offset the first card */
+
+/* Deal-in runs on the inner card so it doesn't clobber the wrapper's fan
+   transform. Only on a fresh deal (.deal-in) — cards received from a pass
+   appear directly, without a drop-in animation. */
+.player-hand.deal-in .card-wrapper > .card {
+  animation: dealCard 0.45s ease calc(var(--card-index) * 0.045s) both;
 }
 
 @keyframes dealCard {
   from {
     opacity: 0;
-    transform: translateY(-50px) scale(0.8);
+    transform: translateY(-40px) scale(0.85);
   }
   to {
     opacity: 1;
@@ -36,26 +59,62 @@
   }
 }
 
+/* Hover always wins the stacking order so any card can be brought up and
+   clicked, even next to a raised/selected card. The card keeps its fan angle
+   (rot-mult 1) so it rises straight along its own direction. */
 .card-wrapper:hover:not(.disabled) {
-  transform: translateY(-16.15px) scale(1.05);
+  --extra-lift: -24px;
+  --extra-scale: 1.04;
+  --rot-mult: 1;
+  z-index: 200 !important;
 }
 
 /* Enhanced styling for cards selected during passing phase */
 .player-hand-container:has(.passing-phase-controls) .card-wrapper.selected {
-  transform: translateY(-37.05px) scale(1.15);
-  box-shadow: 0 8px 25px rgba(231, 76, 60, 0.6);
-  border: 7px solid #e74c3c rounded-md;
+  --extra-lift: -42px;
+  --rot-mult: 1; /* keep fan angle — lift travels parallel to the card */
+  z-index: 40;
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.35));
 }
 
 .card-wrapper.disabled {
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
+/* Cards just received from a pass glow a faint yellow for a few seconds so you
+   can see what you were dealt, then fade back to normal. */
+.card-wrapper.received > .card {
+  animation: receivedGlow 3s ease-out both;
+}
+
+@keyframes receivedGlow {
+  0%   { box-shadow: 0 0 0 3px rgba(245, 205, 66, 0.85), 0 0 18px 5px rgba(245, 205, 66, 0.55); }
+  75%  { box-shadow: 0 0 0 3px rgba(245, 205, 66, 0.8), 0 0 16px 5px rgba(245, 205, 66, 0.5); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 205, 66, 0); }
+}
+
+/* Selected (normal play): card lifts clear of the hand along its own axis, like
+   sliding it up out of the fan. No scale-up (keeps its footprint off
+   neighbors), soft cast shadow sells the height. */
 .card-wrapper.selected {
-  transform: translateY(-26.6px) scale(1.12);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.6);
-  border: 7px solid #27ae60 rounded-md;
+  --extra-lift: -40px;
+  --rot-mult: 1;
+  z-index: 40;
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.35));
+}
+
+/* Selection tint on the card itself keeps the color cue without a gamey glow */
+.card-wrapper.selected > .card {
+  box-shadow:
+    0 0 0 2px rgba(39, 174, 96, 0.95),
+    0 12px 22px rgba(0, 0, 0, 0.3);
+}
+
+.player-hand-container:has(.passing-phase-controls) .card-wrapper.selected > .card {
+  box-shadow:
+    0 0 0 2px rgba(231, 76, 60, 0.95),
+    0 12px 22px rgba(0, 0, 0, 0.3);
 }
 
 .play-card-button {
@@ -94,8 +153,8 @@
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-top: 1rem;
-  min-height: 50px;
+  margin-top: 0.5rem;
+  min-height: 44px;
 }
 
 .waiting-message {
@@ -117,7 +176,7 @@
   flex-direction: row;
   align-items: center;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .selected-cards-info {
@@ -128,6 +187,14 @@
   background: rgba(255, 255, 255, 0.1);
   border-radius: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+/* All three cards chosen — clearly indicate the pass is ready */
+.selected-cards-info.ready {
+  color: #eafaf0;
+  background: rgba(39, 174, 96, 0.25);
+  border-color: rgba(39, 174, 96, 0.9);
 }
 
 .pass-cards-button {

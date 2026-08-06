@@ -1,38 +1,44 @@
 .card {
-  width: 73.15px;
-  height: 102.6px;
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 8.55px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  /* Card dimensions exposed as variables so hands/animations can reuse them.
+     Sized to match the opponents' card-backs so all hands read the same. */
+  --card-width: 92px;
+  --card-height: 129px;
+  width: var(--card-width);
+  height: var(--card-height);
+  /* Subtle paper texture: warm-white with a faint diagonal sheen */
+  background:
+    linear-gradient(160deg, #ffffff 0%, #fdfcfa 45%, #f4f2ee 100%);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 7px;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.12),
+    0 3px 6px rgba(0, 0, 0, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
   user-select: none;
+  overflow: hidden;
 }
 
-/* .card-horizontal {
-  width: 98px;
-  height: 70px;
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  user-select: none;
-} */
+/* Thin inner border frame like a real card */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+
 .card.red {
-  color: #e74c3c;
+  color: #d4283b;
 }
 
 .card.black {
-  color: #2c3e50;
+  color: #1c2530;
 }
 
 .card-corner {
@@ -41,41 +47,113 @@
   flex-direction: column;
   align-items: center;
   font-weight: 700;
-  line-height: 1;
+  line-height: 0.95;
+  z-index: 2;
 }
 
 .card-corner.top-left {
-  top: 6.65px;
-  left: 6.65px;
+  top: calc(var(--card-height) * 0.04);
+  left: calc(var(--card-width) * 0.06);
 }
 
 .card-corner.bottom-right {
-  bottom: 6.65px;
-  right: 6.65px;
+  bottom: calc(var(--card-height) * 0.04);
+  right: calc(var(--card-width) * 0.06);
   transform: rotate(180deg);
 }
 
 .card-rank {
-  font-size: 1.045rem;
-  font-weight: 700;
+  font-size: calc(var(--card-width) * 0.205);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* "10" is two glyphs — render it narrower so it doesn't crowd the top pip */
+.card.two-char .card-rank {
+  font-size: calc(var(--card-width) * 0.165);
+  letter-spacing: -1.5px;
+}
+
+/* The 10 is the busiest card (10 pips): smaller pips, and columns pulled a
+   touch further inward so the outer pips clear the corner "10" index. */
+.card.two-char .card-pips {
+  inset: calc(var(--card-height) * 0.14) calc(var(--card-width) * 0.22);
+}
+
+.card.two-char .card-pip {
+  font-size: calc(var(--card-width) * 0.14);
 }
 
 .card-suit {
-  font-size: 0.95rem;
+  font-size: calc(var(--card-width) * 0.155);
+  margin-top: 1px;
 }
 
 .card-center {
+  position: absolute;
+  /* Clear the corner indices so pips never collide with rank/suit */
+  inset: calc(var(--card-height) * 0.17) calc(var(--card-width) * 0.16);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* ---- Ace: single large ornamental pip ---- */
+.card-suit-ace {
+  font-size: calc(var(--card-width) * 0.46);
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
+}
+
+/* Fallback large suit (unused ranks) */
 .card-suit-large {
-  font-size: 2.6125rem;
+  font-size: calc(var(--card-width) * 0.42);
+}
+
+/* ---- Number cards: pip grid ---- */
+.card-pips {
+  /* Compact, inset pip field so the lattice sits comfortably centered with a
+     clear margin from the card edges and corner indices. */
+  inset: calc(var(--card-height) * 0.14) calc(var(--card-width) * 0.19);
+}
+
+.card-pip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: calc(var(--card-width) * 0.15);
+  line-height: 1;
+  filter: drop-shadow(0 0.5px 0.5px rgba(0, 0, 0, 0.1));
+}
+
+.card-pip.flipped {
+  transform: translate(-50%, -50%) rotate(180deg);
+}
+
+/* ---- Face cards: framed panel ---- */
+.card-face {
+  inset: calc(var(--card-height) * 0.13) calc(var(--card-width) * 0.15);
+}
+
+.card-face-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.card-face-letter {
+  font-size: calc(var(--card-width) * 0.34);
+  font-weight: 800;
+  line-height: 1;
+  font-family: 'Georgia', 'Times New Roman', serif;
 }
 
 .card:hover {
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.15),
+    0 6px 14px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
-
-
