@@ -96,12 +96,17 @@ async def _ensure_columns(conn) -> None:
     """Idempotently add columns introduced after a table already existed.
 
     SQLAlchemy's create_all never ALTERs existing tables, so newly-added columns
-    (e.g. multiplayer_rooms.target_score) need a lightweight manual migration.
+    (e.g. multiplayer_rooms.target_score / player_count / rules_config) need a
+    lightweight manual migration.
     """
     from sqlalchemy import text
 
     # (table, column, DDL type)
-    wanted = [("multiplayer_rooms", "target_score", "INTEGER")]
+    wanted = [
+        ("multiplayer_rooms", "target_score", "INTEGER"),
+        ("multiplayer_rooms", "player_count", "INTEGER NOT NULL DEFAULT 4"),
+        ("multiplayer_rooms", "rules_config", "VARCHAR"),
+    ]
 
     for table, column, coltype in wanted:
         if IS_POSTGRES:

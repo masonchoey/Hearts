@@ -10,6 +10,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { useGameStore } from '../hooks/useGameState';
 import Card from './Card';
+import { slotForIndex } from './seatLayout';
 import './TableCenter.css';
 
 const POSITIONS = { 0: 'bottom', 1: 'left', 2: 'top', 3: 'right' };
@@ -110,9 +111,20 @@ const TrickCard = ({ playerId, card, index, glideDuration }) => {
 };
 
 const TableCenter = () => {
-  const { animatedTrick, animationDelay } = useGameStore();
+  const { animatedTrick, animationDelay, gameState } = useGameStore();
+
+  // Use animatedTrick during animation, otherwise show the actual trick
+  // animatedTrick will be [] when not animating, so we'll use trick in that case
   const displayTrick = animatedTrick.length > 0 ? animatedTrick : [];
+
+  // Calculate glide duration based on animation delay
+  // Scale it appropriately: min 0.3s, max 2s
   const glideDuration = Math.max(300, Math.min(animationDelay * 2, 2000));
+
+  const playerCount = gameState?.player_count || gameState?.players?.length || 4;
+
+  // Player ids here are already rotated so the viewer is index 0 (bottom).
+  const getCardPosition = (playerId) => slotForIndex(playerCount, playerId);
 
   return (
     <div className="table-center">

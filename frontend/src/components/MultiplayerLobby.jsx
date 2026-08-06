@@ -18,6 +18,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  const [config, setConfig] = useState({ player_count: 4, jd_bonus: false, ten_club_doubler: false })
   const gameStartedRef = useRef(false)
 
   // Connect WebSocket while waiting so we receive game_started in real time
@@ -42,7 +43,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
         const r = await getRoom(token, initialRoomId)
         if (cancelled) return
         setRoom(r)
-        if (r.players.length === 4) startGame(r)
+        if (r.players.length === (r.player_count || 4)) startGame(r)
         else setView('waiting')
       } catch (e) {
         if (cancelled) return
@@ -77,7 +78,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
       try {
         const updated = await getRoom(token, room.room_id)
         setRoom(updated)
-        if (updated.players.length === 4) {
+        if (updated.players.length === (updated.player_count || 4)) {
           clearInterval(interval)
           startGame(updated)
         }
@@ -90,7 +91,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
     setLoading(true)
     setError(null)
     try {
-      const newRoom = await createRoom(token, targetScore)
+      const newRoom = await createRoom(token, { ...config, target_score: targetScore })
       setRoom(newRoom)
       setView('waiting')
     } catch (e) {
@@ -109,7 +110,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
       const joinedRoom = await joinRoom(token, useCode)
       setRoom(joinedRoom)
       setView('waiting')
-      if (joinedRoom.players.length === 4) startGame(joinedRoom)
+      if (joinedRoom.players.length === (joinedRoom.player_count || 4)) startGame(joinedRoom)
     } catch (e) {
       setError(e.response?.data?.detail || 'Could not join room — check the invite code')
       setView('join')
@@ -141,17 +142,25 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
     const myUserId = user?.id
     const mySeat = room.players.find(p => p.user_id === myUserId)?.seat ?? 0
     const playerBySeat = Object.fromEntries(room.players.map(p => [p.seat, p]))
+    const seatCount = room.player_count || 4
+    const activeRules = [
+      room.rules?.jd_bonus && 'J♦ = −10',
+      room.rules?.ten_club_doubler && '10♣ doubles',
+    ].filter(Boolean)
 
     return (
       <div className="lobby-screen">
         <div className="lobby-card lobby-card--wide">
           <button className="lobby-back" onClick={onBack}>← Back</button>
           <h2 className="lobby-heading">Waiting for Players</h2>
-          <p className="lobby-subtext">{room.players.length} / 4 players joined</p>
+          <p className="lobby-subtext">{room.players.length} / {seatCount} players joined</p>
+          {activeRules.length > 0 && (
+            <p className="lobby-subtext">Rules: {activeRules.join(' · ')}</p>
+          )}
 
           {/* Seat grid */}
           <div className="lobby-seats">
-            {[0, 1, 2, 3].map(seat => {
+            {Array.from({ length: seatCount }, (_, seat) => {
               const p = playerBySeat[seat]
               const isMe = p?.user_id === myUserId
               return (
@@ -216,7 +225,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
             {connectionStatus === 'error' || connectionStatus === 'closed' ? (
               <p>Reconnecting to game server…</p>
             ) : (
-              <p>Waiting for {4 - room.players.length} more player{4 - room.players.length !== 1 ? 's' : ''}…</p>
+              <p>Waiting for {seatCount - room.players.length} more player{seatCount - room.players.length !== 1 ? 's' : ''}…</p>
             )}
           </div>
         </div>
@@ -231,7 +240,7 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
       <div className="lobby-card">
         <button className="lobby-back" onClick={onBack}>← Back</button>
         <h2 className="lobby-heading">Multiplayer</h2>
-        <p className="lobby-subtext">Play Hearts with up to 3 friends in real time</p>
+        <p className="lobby-subtext">Play Hearts with friends in real time</p>
 
         {error && <div className="lobby-error">{error}</div>}
 
@@ -274,34 +283,68 @@ export default function MultiplayerLobby({ onGameStart, onBack, inviteCode: init
 
         {view === 'create' && (
           <div className="lobby-action">
-            <p>A new room will be created and you'll receive an invite link to share with friends.</p>
+            <p>Configure your game, then share the invite link with friends.</p>
 
-            <label className="lobby-label">Play until a player reaches</label>
-            <div className="lobby-target-options">
-              {[50, 100, 150].map(v => (
+            <div className="lobby-config">
+              <label className="lobby-label">Players</label>
+              <div className="lobby-count-options">
+                {[3, 4, 5].map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    className={`lobby-count-btn ${config.player_count === count ? 'lobby-count-btn--active' : ''}`}
+                    onClick={() => setConfig(c => ({ ...c, player_count: count }))}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+
+              <label className="lobby-label">Play until a player reaches</label>
+              <div className="lobby-target-options">
+                {[50, 100, 150].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    className={`lobby-target-btn ${targetScore === v ? 'lobby-target-btn--active' : ''}`}
+                    onClick={() => setTargetScore(v)}
+                  >
+                    {v}
+                  </button>
+                ))}
                 <button
-                  key={v}
                   type="button"
-                  className={`lobby-target-btn ${targetScore === v ? 'lobby-target-btn--active' : ''}`}
-                  onClick={() => setTargetScore(v)}
+                  className={`lobby-target-btn ${targetScore === null ? 'lobby-target-btn--active' : ''}`}
+                  onClick={() => setTargetScore(null)}
+                  title="Play forever until the host ends the match"
                 >
-                  {v}
+                  ∞ Infinite
                 </button>
-              ))}
-              <button
-                type="button"
-                className={`lobby-target-btn ${targetScore === null ? 'lobby-target-btn--active' : ''}`}
-                onClick={() => setTargetScore(null)}
-                title="Play forever until the host ends the match"
-              >
-                ∞ Infinite
-              </button>
+              </div>
+              <p className="lobby-target-hint">
+                {targetScore === null
+                  ? 'Rounds continue until the host ends the match — lowest total wins.'
+                  : `First to ${targetScore} ends the match — lowest total wins.`}
+              </p>
+
+              <label className="lobby-label">Scoring Rules</label>
+              <label className="lobby-toggle">
+                <input
+                  type="checkbox"
+                  checked={config.jd_bonus}
+                  onChange={e => setConfig(c => ({ ...c, jd_bonus: e.target.checked }))}
+                />
+                <span>Jack of Diamonds is worth <strong>−10</strong></span>
+              </label>
+              <label className="lobby-toggle">
+                <input
+                  type="checkbox"
+                  checked={config.ten_club_doubler}
+                  onChange={e => setConfig(c => ({ ...c, ten_club_doubler: e.target.checked }))}
+                />
+                <span>Taker of <strong>10♣</strong> doubles their points</span>
+              </label>
             </div>
-            <p className="lobby-target-hint">
-              {targetScore === null
-                ? 'Rounds continue until the host ends the match — lowest total wins.'
-                : `First to ${targetScore} ends the match — lowest total wins.`}
-            </p>
 
             <button className="lobby-btn lobby-btn-primary" onClick={handleCreate} disabled={loading}>
               {loading ? 'Creating…' : 'Create Room'}

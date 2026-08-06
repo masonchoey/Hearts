@@ -3,6 +3,7 @@
  * Bridges the WebSocket state from useMultiplayerGame into the existing
  * Zustand store so all existing GameBoard / PlayerHand components work unchanged.
  * Players array is rotated so the current user always appears at seat 0 (bottom).
+ * Supports 3/4/5 players and multi-round matches.
  */
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -32,14 +33,14 @@ export default function MultiplayerGame({ room, onLeave }) {
     playCard: wsPlayCard,
     passCards: wsPassCards,
     nextRound: wsNextRound,
-    subInAI: wsSubInAI,
     endMatch: wsEndMatch,
   } = useMultiplayerGame(room.room_id, token)
+  const animationDelay = useGameStore(s => s.animationDelay)
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState(null)
-  const [, setTick] = useState(0) // 1s ticker to animate the sub-AI countdown
-  const pauseBaseRef = useRef(null)
+  const trickClearTimer = useRef(null)     // pending "clear completed trick" timeout
+  const clearedTrickSig = useRef(null)     // signature of the trick we've already cleared
 
   // Track original playCard so we can restore on unmount
   const origPlayCardRef = useRef(null)
@@ -53,41 +54,36 @@ export default function MultiplayerGame({ room, onLeave }) {
   useEffect(() => {
     if (!gameState || mySeat === null) return
 
+    const n = gameState.player_count || gameState.players?.length || 4
+    const rotSeat = s => (((s - mySeat) % n) + n) % n
+
     // Rotate so mySeat appears at rotated index 0 (bottom / "human" slot)
     const rotatedHandCounts = rotateArray(
-      [0, 1, 2, 3].map(seat => gameState.hand_counts?.[seat] ?? 0),
+      Array.from({ length: n }, (_, seat) => gameState.hand_counts?.[seat] ?? 0),
       mySeat,
     )
-    const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => ({
-      ...p,
-      id: i,
-      is_ai: false,
-      // Backend only sends full hand for the viewer; use hand_counts for card backs
-      hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
-    }))
+    const disconnectedSeats = gameState.disconnected_seats ?? []
+    const rotatedPlayers = rotateArray(gameState.players, mySeat).map((p, i) => {
+      const absSeat = (i + mySeat) % n
+      return {
+        ...p,
+        id: i,
+        is_ai: false,
+        disconnected: disconnectedSeats.includes(absSeat), // flag dropped players
+        // Backend only sends full hand for the viewer; use hand_counts for card backs
+        hand: p.hand?.length ? p.hand : Array(rotatedHandCounts[i]).fill(null),
+      }
+    })
 
-    // Re-derive rotatedPlayers name to flag AI seats for the board.
-    const labeledPlayers = rotatedPlayers.map((p, i) => ({
-      ...p,
-      name: gameState.players?.[(i + mySeat) % 4]?.is_ai ? `${p.name} (AI)` : p.name,
-    }))
-
-    const rotSeat = s => (s - mySeat + 4) % 4
     const cp = gameState.current_player ?? -1
-    const rotatedCurrentPlayer = cp >= 0 ? rotSeat(cp) : -1 // -1 during round-over/terminal
+    const rotatedCurrentPlayer = cp >= 0 ? rotSeat(cp) : -1 // -1 during passing/round-over/terminal
     const rotatedPassesSubmitted = (gameState.passes_submitted ?? []).map(rotSeat)
-
-    // Trick cards carry absolute seats; rotate them to this viewer's layout and
-    // hand them to TableCenter via `animatedTrick` (its render source).
-    const rotatedTrick = (gameState.current_trick ?? []).map(
-      ([s, card]) => [rotSeat(s), card],
-    )
 
     useGameStore.setState({
       gameId: `mp_${room.room_id}`,
       gameState: {
         ...gameState,
-        players: labeledPlayers,
+        players: rotatedPlayers,
         current_player: rotatedCurrentPlayer,
         passes_submitted: rotatedPassesSubmitted,
         my_pass_submitted: gameState.my_pass_submitted ?? false,
@@ -97,29 +93,49 @@ export default function MultiplayerGame({ room, onLeave }) {
         winner: null,
         current_trick: [],
       },
-      animatedTrick: rotatedTrick,
+      // animatedTrick is owned by the trick-display effect below.
       isLoading: false,
       error: null,
     })
   }, [gameState, mySeat, room.room_id])
 
-  // ── Sub-AI grace countdown: tick every second while paused ─────────────────
+  // ── Trick display: rotate to this viewer, and auto-clear a COMPLETED trick ──
+  // The server keeps the N-card trick until the next card is played; we instead
+  // show it briefly then clear it, so the table doesn't stay full waiting on the
+  // next play. Linger scales with the animation-delay slider.
   useEffect(() => {
-    if (!gameState?.paused) {
-      pauseBaseRef.current = null
+    if (!gameState || mySeat === null) return
+    const n = gameState.player_count || gameState.players?.length || 4
+    const rotSeat = s => (((s - mySeat) % n) + n) % n
+    const rawTrick = gameState.current_trick ?? []
+    const rotated = rawTrick.map(([s, card]) => [rotSeat(s), card])
+    const sig = JSON.stringify(rawTrick)
+
+    clearTimeout(trickClearTimer.current)
+
+    if (rawTrick.length < n) {
+      // Growing (or empty) trick — show it live and reset the cleared marker.
+      clearedTrickSig.current = null
+      useGameStore.setState({ animatedTrick: rotated })
       return
     }
-    const seat = gameState.current_player
-    if (!pauseBaseRef.current || pauseBaseRef.current.seat !== seat) {
-      pauseBaseRef.current = {
-        seat,
-        baseElapsed: gameState.disconnect_elapsed?.[seat] ?? 0,
-        baseAt: Date.now(),
-      }
+
+    // Completed trick (all N seats played).
+    if (clearedTrickSig.current === sig) {
+      // Already cleared this one (re-broadcast from an unrelated update) — keep empty.
+      useGameStore.setState({ animatedTrick: [] })
+      return
     }
-    const id = setInterval(() => setTick(t => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [gameState?.paused, gameState?.current_player, gameState?.disconnect_elapsed])
+    // New completed trick: show it, then clear after a proportional linger.
+    useGameStore.setState({ animatedTrick: rotated })
+    const linger = Math.max(1000, Math.min(animationDelay * 4, 3500))
+    trickClearTimer.current = setTimeout(() => {
+      clearedTrickSig.current = sig
+      useGameStore.setState({ animatedTrick: [] })
+    }, linger)
+  }, [gameState, mySeat, animationDelay])
+
+  useEffect(() => () => clearTimeout(trickClearTimer.current), [])
 
   // ── Override playCard and passCards to use WebSocket ─────────────────────
   useEffect(() => {
@@ -133,7 +149,7 @@ export default function MultiplayerGame({ room, onLeave }) {
         wsPlayCard(card)
         return null
       },
-      // Queue full 3-card pass — backend applies when OpenSpiel reaches this seat
+      // Queue full 3-card pass — backend applies once every seat has submitted
       passCards: async (_rotatedPlayerId, cards) => {
         const store = useGameStore.getState()
         const currentGameState = store.gameState
@@ -181,6 +197,7 @@ export default function MultiplayerGame({ room, onLeave }) {
     error: '⚠️ Connection error — reconnecting…',
   }[connectionStatus]
 
+  const requiredPlayers = room.player_count || 4
   const myUserId = user?.id
   const myRoomSeat = room.players.find(p => p.user_id === myUserId)?.seat
   const connectedSet = new Set(connectedSeats)
@@ -190,7 +207,7 @@ export default function MultiplayerGame({ room, onLeave }) {
   const sortedPlayers = [...room.players].sort((a, b) => a.seat - b.seat)
   const connectedCount = sortedPlayers.filter(p => connectedSet.has(p.seat)).length
   const isHost = room.host_id === myUserId
-  const allConnected = sortedPlayers.length === 4 && connectedCount === 4
+  const allConnected = sortedPlayers.length === requiredPlayers && connectedCount === requiredPlayers
   const canStart = isHost && allConnected && !starting
 
   const handleStartGame = async () => {
@@ -206,24 +223,15 @@ export default function MultiplayerGame({ room, onLeave }) {
   }
 
   // ── Derived round / match / pause state (absolute seats from the raw state) ──
+  const n = gameState?.player_count || gameState?.players?.length || 4
   const nameOf = seat => gameState?.players?.[seat]?.name ?? `Player ${seat}`
   const roundOver = !!gameState?.round_over
   const matchOver = !!gameState?.game_over
   const paused = !!gameState?.paused && !roundOver && !matchOver
   const targetLabel = gameState?.target_score == null ? '∞' : gameState.target_score
-
-  // Sub-AI countdown for the stalled seat
   const pausedSeat = paused ? gameState.current_player : null
-  const grace = gameState?.ai_sub_grace_seconds ?? 60
-  let subRemaining = null
-  if (pausedSeat !== null && pauseBaseRef.current?.seat === pausedSeat) {
-    const { baseElapsed, baseAt } = pauseBaseRef.current
-    const elapsed = baseElapsed + (Date.now() - baseAt) / 1000
-    subRemaining = Math.max(0, Math.ceil(grace - elapsed))
-  }
-  const canSubAI = pausedSeat !== null && subRemaining === 0
 
-  const seatRows = [0, 1, 2, 3] // absolute seats for the summary tables
+  const seatRows = Array.from({ length: n }, (_, i) => i) // absolute seats for the summary tables
 
   return (
     <div className="mp-game-root">
@@ -283,7 +291,7 @@ export default function MultiplayerGame({ room, onLeave }) {
           )}
 
           {isHost && !allConnected && (
-            <p className="mp-start-hint">All 4 players must be connected before you can start.</p>
+            <p className="mp-start-hint">All {requiredPlayers} players must be connected before you can start.</p>
           )}
 
           {startError && <p className="mp-start-error">{startError}</p>}
@@ -305,17 +313,8 @@ export default function MultiplayerGame({ room, onLeave }) {
           <div className="mp-overlay-card">
             <div className="spinner" />
             <h3>Waiting for {nameOf(pausedSeat)} to reconnect…</h3>
-            <p className="mp-overlay-sub">The game is paused until they return or an AI takes over.</p>
+            <p className="mp-overlay-sub">The game is paused until they return.</p>
             <div className="mp-overlay-actions">
-              <button
-                className="mp-overlay-btn mp-overlay-btn--primary"
-                onClick={() => wsSubInAI(pausedSeat)}
-                disabled={!canSubAI}
-              >
-                {canSubAI
-                  ? `Play ${nameOf(pausedSeat)}'s seat as AI`
-                  : `Sub in AI available in ${subRemaining}s`}
-              </button>
               <button className="mp-overlay-btn mp-overlay-btn--danger" onClick={wsEndMatch}>
                 End match for everyone
               </button>
@@ -337,7 +336,7 @@ export default function MultiplayerGame({ room, onLeave }) {
               <tbody>
                 {seatRows.map(seat => (
                   <tr key={seat} className={seat === gameState.round_winner ? 'mp-row-best' : ''}>
-                    <td>{nameOf(seat)}{gameState.ai_seats?.includes(seat) ? ' (AI)' : ''}</td>
+                    <td>{nameOf(seat)}</td>
                     <td>{gameState.round_scores?.[seat] ?? 0}</td>
                     <td>{gameState.scores?.[seat] ?? 0}</td>
                   </tr>
